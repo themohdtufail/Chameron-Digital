@@ -1,0 +1,377 @@
+// Chameron Digital — Prisma schema
+// Postgres in production; see README for local setup.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  BUYER
+  SELLER
+  ADMIN
+}
+
+enum StoreStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum ProductStatus {
+  AVAILABLE
+  OUT_OF_STOCK
+  HIDDEN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  COMPLETED
+  CANCELLED
+  REJECTED
+}
+
+enum PaymentMethod {
+  COD
+  ONLINE
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+enum OtpPurpose {
+  LOGIN
+  REGISTER
+}
+
+enum VariantType {
+  SIZE
+  COLOR
+  MATERIAL
+}
+
+// ---------------------------------------------------------------------------
+// Identity & Auth
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String   @id @default(cuid())
+  role          Role     @default(BUYER)
+  name          String?
+  phone         String   @unique
+  email         String?
+  passwordHash  String? // used for ADMIN accounts only; buyers/sellers use OTP
+  avatarUrl     String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  store         Store?
+  cart          Cart?
+  addresses     Location[]
+  orders        Order[]        @relation("BuyerOrders")
+  reviews       Review[]
+  sessions      Session[]
+
+  @@index([role])
+}
+
+model OtpCode {
+  id         String     @id @default(cuid())
+  phone      String
+  codeHash   String
+  purpose    OtpPurpose @default(LOGIN)
+  attempts   Int        @default(0)
+  consumed   Boolean    @default(false)
+  expiresAt  DateTime
+  createdAt  DateTime   @default(now())
+
+  @@index([phone, purpose])
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique
+  userAgent  String?
+  ip         String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Location
+// ---------------------------------------------------------------------------
+
+// Used for a buyer's detected/selected location and saved addresses,
+// and as the checkout shipping address snapshot source.
+model Location {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label       String   @default("Current")
+  addressLine String?
+  landmark    String?
+  area        String?
+  city        String
+  state       String?
+  country     String   @default("India")
+  latitude    Float?
+  longitude   Float?
+  isDefault   Boolean  @default(false)
+  isCurrent   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orders      Order[]
+
+  @@index([userId])
+  @@index([city])
+}
+
+// ---------------------------------------------------------------------------
+// Catalog
+// ---------------------------------------------------------------------------
+
+// Global, admin-managed business categories (Fashion, Food, Electronics...)
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  icon      String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  stores    Store[]
+}
+
+// Seller-defined in-store navigation categories (Men, Women, Kids, Offers)
+model ProductCategory {
+  id        String    @id @default(cuid())
+  storeId   String
+  store     Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name      String
+  slug      String
+  createdAt DateTime  @default(now())
+
+  products  Product[]
+
+  @@unique([storeId, slug])
+}
+
+model Store {
+  id                String      @id @default(cuid())
+  ownerId           String      @unique
+  owner             User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name              String
+  slug              String      @unique
+  categoryId        String?
+  category          Category?   @relation(fields: [categoryId], references: [id])
+  description       String?
+  logoUrl           String?
+  coverUrl          String?
+  phone             String
+  email             String?
+  addressLine       String?
+  area              String?
+  city              String
+  state             String?
+  country           String      @default("India")
+  latitude          Float?
+  longitude         Float?
+  openingTime       String      @default("09:00")
+  closingTime       String      @default("21:00")
+  isManuallyClosed  Boolean     @default(false)
+  deliveryAvailable Boolean     @default(true)
+  deliveryFee       Float       @default(0)
+  status            StoreStatus @default(PENDING)
+  rejectionReason   String?
+  ratingAvg         Float       @default(0)
+  ratingCount       Int         @default(0)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  productCategories ProductCategory[]
+  products          Product[]
+  orders            Order[]
+  reviews           Review[]
+
+  @@index([status])
+  @@index([city])
+  @@index([categoryId])
+}
+
+model Product {
+  id                String            @id @default(cuid())
+  storeId           String
+  store             Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  categoryId        String?
+  category          ProductCategory?  @relation(fields: [categoryId], references: [id])
+  name              String
+  slug              String
+  description       String?
+  specifications    Json?
+  price             Float
+  discountPrice     Float?
+  stockQuantity     Int               @default(0)
+  status            ProductStatus     @default(AVAILABLE)
+  videoUrl          String?
+  ratingAvg         Float             @default(0)
+  ratingCount       Int               @default(0)
+  isHidden          Boolean           @default(false)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  images            ProductImage[]
+  variants          ProductVariant[]
+  cartItems         CartItem[]
+  orderItems        OrderItem[]
+  reviews           Review[]
+
+  @@unique([storeId, slug])
+  @@index([storeId])
+  @@index([status])
+}
+
+model ProductImage {
+  id         String  @id @default(cuid())
+  productId  String
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url        String
+  position   Int     @default(0)
+
+  @@index([productId])
+}
+
+model ProductVariant {
+  id            String      @id @default(cuid())
+  productId     String
+  product       Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type          VariantType
+  value         String
+  priceDelta    Float       @default(0)
+  stockQuantity Int         @default(0)
+
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+
+  @@index([productId])
+}
+
+// ---------------------------------------------------------------------------
+// Cart
+// ---------------------------------------------------------------------------
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id         String          @id @default(cuid())
+  cartId     String
+  cart       Cart            @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId  String?
+  variant    ProductVariant? @relation(fields: [variantId], references: [id])
+  quantity   Int             @default(1)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@unique([cartId, productId, variantId])
+  @@index([cartId])
+}
+
+// ---------------------------------------------------------------------------
+// Orders
+// ---------------------------------------------------------------------------
+
+model Order {
+  id              String        @id @default(cuid())
+  orderNumber     String        @unique
+  buyerId         String
+  buyer           User          @relation("BuyerOrders", fields: [buyerId], references: [id])
+  storeId         String
+  store           Store         @relation(fields: [storeId], references: [id])
+  addressId       String?
+  address         Location?     @relation(fields: [addressId], references: [id])
+  customerName    String
+  customerPhone   String
+  addressSnapshot String
+  status          OrderStatus   @default(PENDING)
+  paymentMethod   PaymentMethod @default(COD)
+  paymentStatus   PaymentStatus @default(PENDING)
+  subtotal        Float
+  deliveryFee     Float         @default(0)
+  total           Float
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  items           OrderItem[]
+
+  @@index([buyerId])
+  @@index([storeId])
+  @@index([status])
+}
+
+model OrderItem {
+  id            String          @id @default(cuid())
+  orderId       String
+  order         Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product         @relation(fields: [productId], references: [id])
+  variantId     String?
+  variant       ProductVariant? @relation(fields: [variantId], references: [id])
+  productName   String
+  variantLabel  String?
+  imageUrl      String?
+  price         Float
+  quantity      Int
+  lineTotal     Float
+
+  @@index([orderId])
+}
+
+// ---------------------------------------------------------------------------
+// Reviews
+// ---------------------------------------------------------------------------
+
+model Review {
+  id        String   @id @default(cuid())
+  buyerId   String
+  buyer     User     @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  storeId   String?
+  store     Store?   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  @@index([storeId])
+  @@index([productId])
+}
