@@ -220,6 +220,8 @@ You can also just register a brand-new buyer or seller account with any phone nu
 
 ## Testing
 
+Every pull request and every push to `main` runs an automated CI quality gate (TypeScript, lint, tests, production build) via GitHub Actions — see [`docs/CI_CD.md`](docs/CI_CD.md) for exactly what it checks, how it uses a disposable database (never production), and how it relates to Vercel's separate deployment pipeline.
+
 ```bash
 npm test
 ```
