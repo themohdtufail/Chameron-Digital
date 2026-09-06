@@ -90,6 +90,7 @@ enum PaymentStatus {
   PAID
   FAILED
   REFUNDED
+  PARTIALLY_REFUNDED
 }
 
 enum OtpPurpose {
@@ -192,6 +193,8 @@ model User {
   auditLogs        AuditLog[]        @relation("AuditActor")
   supportTickets       SupportTicket[]
   supportTicketReplies SupportTicketReply[]
+  refundsRequested     Refund[]
+  payoutsProcessed     Payout[]
 
   @@index([role])
 }
@@ -405,6 +408,7 @@ model Store {
   subscription      SellerSubscription?
   commissionRules   CommissionRule[]
   coupons           Coupon[]
+  payouts           Payout[]
 
   @@index([status])
   @@index([city])
@@ -743,6 +747,75 @@ model Payment {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
+  refunds Refund[]
+
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Refunds
+// ---------------------------------------------------------------------------
+
+enum RefundStatus {
+  REQUESTED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// Admin-initiated, full or partial. A COMPLETED refund whose total (with any
+// prior COMPLETED refunds on the same payment) equals the payment's full
+// amount flips Payment.status to REFUNDED, otherwise PARTIALLY_REFUNDED —
+// same "server computes, never trusts a single field" principle as the
+// order pricing snapshot.
+model Refund {
+  id            String       @id @default(cuid())
+  paymentId     String
+  payment       Payment      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  amount        Float
+  reason        String?
+  status        RefundStatus @default(REQUESTED)
+  requestedById String
+  requestedBy   User         @relation(fields: [requestedById], references: [id])
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([paymentId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Seller payouts
+// ---------------------------------------------------------------------------
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  ON_HOLD
+}
+
+// A tracking ledger only — no real money moves through this table. Admin
+// records a payout for a store covering a period, then marks it PAID once
+// the transfer has actually been made through a real banking/UPI channel
+// outside the app (see decision in Phase 3 plan: "never automatically
+// transfer real money unless the payout integration is explicitly wired").
+model Payout {
+  id            String       @id @default(cuid())
+  storeId       String
+  store         Store        @relation(fields: [storeId], references: [id])
+  amount        Float
+  status        PayoutStatus @default(PENDING)
+  periodStart   DateTime
+  periodEnd     DateTime
+  notes         String?
+  processedById String?
+  processedBy   User?        @relation(fields: [processedById], references: [id])
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([storeId])
   @@index([status])
 }
 

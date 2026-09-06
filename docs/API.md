@@ -184,6 +184,23 @@ A `DELIVERY_PARTNER` account follows the same OTP-login + approval-gate pattern 
 | `GET /api/admin/payments` `?status=` | ADMIN | Every payment platform-wide, with its order/store/buyer. |
 | `GET /api/admin/reports` | ADMIN | 30-day revenue/commission/order totals + daily series, active-seller/buyer/delivery-partner counts, open-ticket count, active-subscription breakdown by plan, and top 5 stores by revenue — the consolidated cross-milestone reports overview. |
 
+## Refunds & seller payouts
+
+Both are tracking ledgers only — creating a `Refund` or `Payout` row never moves real money; there's no payment-gateway refund API or bank/UPI payout integration wired up (no real gateway exists in this sandbox — see `src/lib/payment-gateway.ts`). An admin who has actually refunded/paid someone through a real channel records it here for the books.
+
+A `Refund`'s amount is capped server-side at the payment's refundable balance (`amount` minus every prior `COMPLETED` refund on it — `src/lib/refund.ts`'s `computeRefundableBalance()`); a `COMPLETED` refund flips `Payment.status` to `REFUNDED` (fully covered) or `PARTIALLY_REFUNDED` otherwise. A `Payout`'s amount is capped at the store's outstanding balance (lifetime `sellerEarning` across revenue-counted orders, minus every prior `PAID` payout — `src/lib/payout.ts`'s `computeOutstandingBalance()`); `PENDING`/`PROCESSING`/`ON_HOLD`/`FAILED` payouts don't reduce the balance, only `PAID` does, so multiple payouts can be queued before any of them lands.
+
+| Method & path | Auth | Notes |
+|---|---|---|
+| `GET /api/admin/refunds` `?paymentId=` | ADMIN | List refunds, optionally for one payment. |
+| `POST /api/admin/refunds` | ADMIN | `{ paymentId, amount, reason? }` — rejected if the payment isn't `PAID`/`PARTIALLY_REFUNDED` or the amount exceeds the refundable balance. Starts `REQUESTED`. |
+| `PATCH /api/admin/refunds/[id]` | ADMIN | `{ status: "PROCESSING" \| "COMPLETED" \| "FAILED" }` — only while the refund hasn't already reached a final state. `COMPLETED` updates the payment's status and `refundedAt`. Writes an `AuditLog` row. |
+| `GET /api/admin/payouts` `?storeId=` | ADMIN | List payouts, optionally for one store. |
+| `GET /api/admin/payouts/balances` | ADMIN | Every approved store with an outstanding balance > 0, sorted highest first. |
+| `POST /api/admin/payouts` | ADMIN | `{ storeId, amount, periodStart, periodEnd, notes? }` — rejected if the amount exceeds the store's outstanding balance. Starts `PENDING`. |
+| `PATCH /api/admin/payouts/[id]` | ADMIN | `{ status: "PENDING" \| "PROCESSING" \| "PAID" \| "FAILED" \| "ON_HOLD" }`; marking `PAID` stamps `processedById`. Writes an `AuditLog` row. |
+| `GET /api/seller/payouts` | SELLER | Own store's lifetime earnings, outstanding balance, and full payout history (read-only). |
+
 ## Platform settings & feature flags
 
 Tunables that used to be hardcoded constants (`src/lib/settings.ts`'s `SETTINGS_CATALOG`) — commission default %, loyalty ₹-per-point rate, new-seller trial length, platform name — now read through `getSetting()`/`getSettingNumber()`, which fall back to the same hardcoded value when no `PlatformSetting` row exists yet, so a lapsed/never-configured platform behaves exactly as before. Feature flags (`src/lib/feature-flags.ts`'s `FEATURE_FLAG_CATALOG`) are booleans checked on real request paths — `ai_assistant` (the 3 seller AI endpoints), `online_payments` (checkout's `ONLINE` method), `coupons` (coupon application at checkout), `reviews` (review creation), `delivery_partner_assignment` (assigning a partner to an order) — a missing `FeatureFlag` row means enabled, so every flag defaults to today's behavior until an admin flips it off.
