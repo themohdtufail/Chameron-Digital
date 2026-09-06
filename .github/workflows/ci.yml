@@ -103,19 +103,12 @@ jobs:
       - name: Production build
         run: npm run build
 
-  dependency-review:
-    name: Dependency review
-    runs-on: ubuntu-latest
-    # Only meaningful on pull requests, where there is a base ref to diff
-    # dependency changes against.
-    if: github.event_name == 'pull_request'
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Dependency review
-        uses: actions/dependency-review-action@v4
-        with:
-          fail-on-severity: high
+# A `dependency-review` job (actions/dependency-review-action, flagging
+# high-severity vulnerabilities in newly-added dependencies on PRs) was
+# tried here and removed: it requires the repository's Dependency graph
+# setting to be enabled first (Settings -> Security -> Dependency graph),
+# which is currently off, and the action hard-fails without it ("Dependency
+# review is not supported on this repository"). Turning that setting on is a
+# one-click, no-risk change a repo admin can make; once it's on, re-add the
+# job above (see docs/CI_CD.md for the exact snippet) rather than leaving a
+# job in this file that can never pass today.

@@ -29,7 +29,21 @@ Job `quality-gate`:
 7. `npm test` — the full Vitest suite, including the DB-integration test, against that same disposable database
 8. `npm run build` — the repository's actual, unmodified build script (which re-runs `prisma migrate deploy` as a no-op, then `next build`)
 
-Job `dependency-review` (pull requests only): flags newly-introduced dependencies with high-severity known vulnerabilities, diffed against the PR's base branch. Read-only, does not block on anything below "high" severity, does not modify `package.json`/lockfile.
+**Not currently included: dependency review.** `actions/dependency-review-action` (which flags newly-introduced dependencies with high-severity known vulnerabilities on PRs) was tried in this workflow and removed after it failed with *"Dependency review is not supported on this repository. Please ensure that Dependency graph is enabled."* That's a repository setting (**Settings → Security → Dependency graph**), currently off, that a repo admin needs to enable — a one-click, no-risk change. Once it's on, add this job back to `.github/workflows/ci.yml`:
+
+```yaml
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+```
 
 **Every step in `quality-gate` must succeed or the workflow fails** — there is no `|| true`, no `continue-on-error`, and no step that can silently swallow a failure. A red check on a PR means: tests, types, lint, or the build genuinely broke.
 
