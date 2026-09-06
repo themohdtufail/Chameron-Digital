@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/auth";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
 import { generateOrderNumber, formatCurrency } from "@/lib/utils";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import { createNotification } from "@/lib/notify";
+import { createNotification, notifyLowStockIfCrossed } from "@/lib/notify";
 
 const checkoutSchema = z.object({
   addressId: z.string(),
@@ -166,6 +166,26 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     body: `${body.customerName} placed order ${order.orderNumber} for ${formatCurrency(order.total)}.`,
     relatedOrderId: order.id,
   });
+
+  await createNotification({
+    userId: user.id,
+    type: "ORDER_PLACED",
+    title: "Order placed",
+    body: `Your order ${order.orderNumber} from ${store.name} has been placed for ${formatCurrency(order.total)}.`,
+    relatedOrderId: order.id,
+  });
+
+  for (const item of cartItems) {
+    if (item.variantId || !item.product.trackInventory) continue;
+    await notifyLowStockIfCrossed({
+      storeOwnerId: store.ownerId,
+      productId: item.productId,
+      productName: item.product.name,
+      previousStock: item.product.stockQuantity,
+      newStock: item.product.stockQuantity - item.quantity,
+      threshold: item.product.lowStockThreshold,
+    });
+  }
 
   return NextResponse.json({ order });
 });

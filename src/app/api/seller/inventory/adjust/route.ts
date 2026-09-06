@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { inventoryAdjustSchema } from "@/lib/validation";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
+import { notifyLowStockIfCrossed } from "@/lib/notify";
 
 export const POST = withApiErrors(async (req: NextRequest) => {
   const user = await requireRole("SELLER");
@@ -45,6 +46,17 @@ export const POST = withApiErrors(async (req: NextRequest) => {
       },
     });
   });
+
+  if (!body.variantId && product.trackInventory) {
+    await notifyLowStockIfCrossed({
+      storeOwnerId: store.ownerId,
+      productId: product.id,
+      productName: product.name,
+      previousStock: product.stockQuantity,
+      newStock: product.stockQuantity + body.delta,
+      threshold: product.lowStockThreshold,
+    });
+  }
 
   return NextResponse.json({ success: true });
 });
