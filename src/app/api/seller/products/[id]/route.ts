@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { productSchema } from "@/lib/validation";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
+import { writeAuditLog } from "@/lib/audit";
 
 async function loadOwnedProduct(userId: string, productId: string) {
   const store = await prisma.store.findUnique({ where: { ownerId: userId } });
@@ -68,6 +69,16 @@ export const PATCH = withApiErrors(async (req: NextRequest, { params }: { params
     });
   });
 
+  if (body.price !== undefined && body.price !== product.price) {
+    await writeAuditLog({
+      actorId: user.id,
+      action: "PRODUCT_PRICE_CHANGED",
+      entityType: "Product",
+      entityId: product.id,
+      metadata: { from: product.price, to: body.price },
+    });
+  }
+
   return NextResponse.json({ product: updated });
 });
 
@@ -77,5 +88,13 @@ export const DELETE = withApiErrors(async (_req: NextRequest, { params }: { para
   if (!product) return jsonError("Product not found", 404);
 
   await prisma.product.delete({ where: { id: product.id } });
+  await writeAuditLog({
+    actorId: user.id,
+    action: "PRODUCT_DELETED",
+    entityType: "Product",
+    entityId: product.id,
+    metadata: { name: product.name },
+  });
+
   return NextResponse.json({ success: true });
 });

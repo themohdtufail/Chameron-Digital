@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 const reviewSchema = z.object({
   orderId: z.string(),
@@ -26,6 +27,8 @@ export const GET = withApiErrors(async (req: NextRequest) => {
 export const POST = withApiErrors(async (req: NextRequest) => {
   const user = await requireRole("BUYER");
   const body = reviewSchema.parse(await req.json());
+
+  await enforceRateLimit(user.id, "review_create", { windowSeconds: 60 * 60, max: 20 });
 
   const order = await prisma.order.findFirst({ where: { id: body.orderId, buyerId: user.id } });
   if (!order) return jsonError("Order not found", 404);

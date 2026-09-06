@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
+import { writeAuditLog } from "@/lib/audit";
 
 const updateSchema = z.object({
   status: z.enum(["PENDING", "APPROVED", "REJECTED", "SUSPENDED"]),
@@ -10,7 +11,7 @@ const updateSchema = z.object({
 });
 
 export const PATCH = withApiErrors(async (req: NextRequest, { params }: { params: { id: string } }) => {
-  await requireRole("ADMIN");
+  const admin = await requireRole("ADMIN");
   const body = updateSchema.parse(await req.json());
 
   const store = await prisma.store.findUnique({ where: { id: params.id } });
@@ -19,6 +20,14 @@ export const PATCH = withApiErrors(async (req: NextRequest, { params }: { params
   const updated = await prisma.store.update({
     where: { id: store.id },
     data: { status: body.status, rejectionReason: body.status === "REJECTED" ? body.rejectionReason : null },
+  });
+
+  await writeAuditLog({
+    actorId: admin.id,
+    action: `STORE_${body.status}`,
+    entityType: "Store",
+    entityId: store.id,
+    metadata: body.rejectionReason ? { reason: body.rejectionReason } : undefined,
   });
 
   return NextResponse.json({ store: updated });

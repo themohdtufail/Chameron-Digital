@@ -9,11 +9,13 @@ import {
   type UploadFolder,
 } from "@/lib/storage";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 const ALLOWED_FOLDERS: UploadFolder[] = ["stores", "products", "avatars", "reviews", "requests"];
 
 export const POST = withApiErrors(async (req: NextRequest) => {
-  await requireUser();
+  const user = await requireUser();
+  await enforceRateLimit(user.id, "upload", { windowSeconds: 60 * 60, max: 60 });
 
   const form = await req.formData();
   const file = form.get("file");
