@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ShoppingBag, Store, ArrowRight } from "lucide-react";
+import { ShoppingBag, Store, Truck, ArrowRight } from "lucide-react";
 import { Logo } from "@/components/Logo";
 
 export default function RoleSelectionPage() {
@@ -34,6 +34,15 @@ export default function RoleSelectionPage() {
           title="Seller"
           description="Create your digital store and grow online"
           style={{ animationDelay: "180ms" }}
+        />
+        <RoleCard
+          href="/delivery/login"
+          icon={<Truck className="h-7 w-7 text-brand-600" />}
+          iconBg="bg-brand-50"
+          emoji="🚚"
+          title="Delivery partner"
+          description="Deliver orders and earn on your schedule"
+          style={{ animationDelay: "280ms" }}
         />
       </div>
 

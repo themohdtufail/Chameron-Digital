@@ -15,7 +15,10 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   const result = await verifyOtp(body.phone, "LOGIN", body.code);
   if (!result.success) return jsonError(result.reason, 400);
 
-  let user = await prisma.user.findUnique({ where: { phone: body.phone }, include: { store: true } });
+  let user = await prisma.user.findUnique({
+    where: { phone: body.phone },
+    include: { store: true, deliveryPartner: true },
+  });
 
   if (user && user.role !== body.role) {
     return jsonError(
@@ -33,7 +36,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
         name: body.name,
         email: body.email || undefined,
       },
-      include: { store: true },
+      include: { store: true, deliveryPartner: true },
     });
     if (body.role === "BUYER") {
       await prisma.cart.create({ data: { userId: user.id } });
@@ -55,6 +58,8 @@ export const POST = withApiErrors(async (req: NextRequest) => {
       email: user.email,
       hasStore: Boolean(user.store),
       storeStatus: user.store?.status ?? null,
+      hasDeliveryProfile: Boolean(user.deliveryPartner),
+      deliveryPartnerStatus: user.deliveryPartner?.status ?? null,
     },
   });
 });

@@ -3,23 +3,43 @@ export type OrderStatus =
   | "CONFIRMED"
   | "PREPARING"
   | "READY"
+  | "PICKED_UP"
   | "OUT_FOR_DELIVERY"
   | "DELIVERED"
   | "CANCELLED"
   | "REJECTED";
 
-export type OrderActor = "BUYER" | "SELLER" | "ADMIN";
+export type OrderActor = "BUYER" | "SELLER" | "ADMIN" | "DELIVERY_PARTNER";
 
-/** Seller/admin-driven forward path through the 8-state order lifecycle. */
+/**
+ * Seller/admin-driven forward path through the order lifecycle. READY can
+ * go either to PICKED_UP (a delivery partner is fulfilling the order) or
+ * straight to OUT_FOR_DELIVERY (self-fulfillment, unchanged from before
+ * delivery partners existed) — both stay valid so existing sellers with no
+ * partner are unaffected.
+ */
 export const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PENDING: ["CONFIRMED", "REJECTED"],
   CONFIRMED: ["PREPARING", "REJECTED"],
   PREPARING: ["READY"],
-  READY: ["OUT_FOR_DELIVERY"],
+  READY: ["PICKED_UP", "OUT_FOR_DELIVERY"],
+  PICKED_UP: ["OUT_FOR_DELIVERY"],
   OUT_FOR_DELIVERY: ["DELIVERED"],
   DELIVERED: [],
   CANCELLED: [],
   REJECTED: [],
+};
+
+/**
+ * A delivery partner may only advance an order once it's been handed to
+ * them, and only through the delivery leg — never the seller's prep steps
+ * or the buyer-only cancellation path. Route handlers additionally check
+ * that the order is assigned to the acting partner (not expressible here,
+ * since this function has no DB access).
+ */
+const DELIVERY_PARTNER_ALLOWED_NEXT: Partial<Record<OrderStatus, OrderStatus[]>> = {
+  PICKED_UP: ["OUT_FOR_DELIVERY"],
+  OUT_FOR_DELIVERY: ["DELIVERED"],
 };
 
 // A buyer can still back out through CONFIRMED (before the seller has started
@@ -52,6 +72,14 @@ export function canTransition(current: OrderStatus, next: OrderStatus, actor: Or
 
   if (actor === "BUYER") {
     return { allowed: false, reason: "Forbidden", status: 403 };
+  }
+
+  if (actor === "DELIVERY_PARTNER") {
+    const allowed = DELIVERY_PARTNER_ALLOWED_NEXT[current] ?? [];
+    if (!allowed.includes(next)) {
+      return { allowed: false, reason: `Delivery partners cannot move an order from ${current} to ${next}`, status: 400 };
+    }
+    return { allowed: true };
   }
 
   if (next === "REJECTED") {

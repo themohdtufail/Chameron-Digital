@@ -17,6 +17,8 @@ export const GET = withApiErrors(async () => {
       hasStore: Boolean(user.store),
       storeStatus: user.store?.status ?? null,
       storeSlug: user.store?.slug ?? null,
+      hasDeliveryProfile: Boolean(user.deliveryPartner),
+      deliveryPartnerStatus: user.deliveryPartner?.status ?? null,
     },
   });
 });

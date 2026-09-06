@@ -19,6 +19,7 @@ enum Role {
   BUYER
   SELLER
   ADMIN
+  DELIVERY_PARTNER
 }
 
 enum StoreStatus {
@@ -34,7 +35,9 @@ enum ProductStatus {
   HIDDEN
 }
 
-// PENDING -> CONFIRMED -> PREPARING -> READY -> OUT_FOR_DELIVERY -> DELIVERED
+// PENDING -> CONFIRMED -> PREPARING -> READY -> [PICKED_UP ->] OUT_FOR_DELIVERY -> DELIVERED
+// PICKED_UP is only entered when a delivery partner is fulfilling the order;
+// self-fulfillment (no partner) skips it and goes READY -> OUT_FOR_DELIVERY.
 // PENDING/CONFIRMED -> CANCELLED (buyer-initiated)
 // PENDING/CONFIRMED -> REJECTED (seller-initiated)
 enum OrderStatus {
@@ -42,10 +45,18 @@ enum OrderStatus {
   CONFIRMED
   PREPARING
   READY
+  PICKED_UP
   OUT_FOR_DELIVERY
   DELIVERED
   CANCELLED
   REJECTED
+}
+
+enum DeliveryPartnerStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
 }
 
 enum PaymentMethod {
@@ -91,6 +102,7 @@ enum NotificationType {
   LOW_STOCK
   PRODUCT_REQUEST_RECEIVED
   PRODUCT_REQUEST_RESPONSE
+  DELIVERY_ASSIGNED
 }
 
 enum ProductRequestStatus {
@@ -121,6 +133,8 @@ model User {
   cart             Cart?
   addresses        Location[]
   orders           Order[]           @relation("BuyerOrders")
+  deliveries       Order[]           @relation("DeliveryPartnerOrders")
+  deliveryPartner  DeliveryPartner?
   reviews          Review[]
   sessions         Session[]
   wishlist         Wishlist[]
@@ -130,6 +144,23 @@ model User {
   auditLogs        AuditLog[]        @relation("AuditActor")
 
   @@index([role])
+}
+
+// Profile for the DELIVERY_PARTNER role, mirroring Store's approval-gate
+// pattern (PENDING until admin review). Platform-wide, not store-scoped —
+// any seller can assign any APPROVED + available partner to their order.
+model DeliveryPartner {
+  id              String                @id @default(cuid())
+  userId          String                @unique
+  user            User                  @relation(fields: [userId], references: [id])
+  vehicleType     String?
+  status          DeliveryPartnerStatus @default(PENDING)
+  isAvailable     Boolean               @default(true)
+  rejectionReason String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([status])
 }
 
 model OtpCode {
@@ -278,6 +309,7 @@ model Store {
   deliveryFee            Float       @default(0)
   deliveryRadius         Float? // km
   estimatedDeliveryMinutes Int?
+  minOrderAmount         Float       @default(0)
   status                 StoreStatus @default(PENDING)
   rejectionReason        String?
   isVerified             Boolean     @default(false)
@@ -430,6 +462,10 @@ model Order {
   deliveryFee     Float         @default(0)
   total           Float
   notes           String?
+  deliveryPartnerId   String?
+  deliveryPartner     User?     @relation("DeliveryPartnerOrders", fields: [deliveryPartnerId], references: [id])
+  deliveryAssignedAt  DateTime?
+  pickedUpAt          DateTime?
   cancelledById   String?
   cancelReason    String?
   cancelledAt     DateTime?
@@ -443,6 +479,7 @@ model Order {
   @@index([buyerId])
   @@index([storeId])
   @@index([status])
+  @@index([deliveryPartnerId])
 }
 
 model OrderItem {

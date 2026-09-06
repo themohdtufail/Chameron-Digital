@@ -2,7 +2,7 @@
 
 Every route lives under `src/app/api/**`, is wrapped in `withApiErrors` (consistent JSON error shape, the Origin/CSRF check, and rate-limit error mapping — see the [Security](../README.md#security) section of the README), validates its input with Zod, and enforces auth with `requireUser()`/`requireRole()`. A future native app, partner integration, or bot can reuse these endpoints as-is — the web app is just one client of this API.
 
-Auth: **cookie** = the `cd_session` JWT cookie set by login; role in brackets is the minimum role required (`BUYER`/`SELLER`/`ADMIN`), "any" means any authenticated role, "public" means no auth required.
+Auth: **cookie** = the `cd_session` JWT cookie set by login; role in brackets is the minimum role required (`BUYER`/`SELLER`/`ADMIN`/`DELIVERY_PARTNER`), "any" means any authenticated role, "public" means no auth required.
 
 ## Auth
 
@@ -35,7 +35,8 @@ Auth: **cookie** = the `cd_session` JWT cookie set by login; role in brackets is
 | `GET /api/orders` | BUYER | The buyer's own orders. |
 | `POST /api/orders` | BUYER | Places an order from the cart. Rate-limited. Stock is decremented with a concurrency-safe conditional update (`stock >= qty` in the `WHERE` clause) inside the order transaction; notifies the seller (new order) and the buyer (order placed), and the seller again if stock crosses low/out. |
 | `GET /api/orders/[id]` | buyer/seller owner or ADMIN | Order detail. |
-| `PATCH /api/orders/[id]` | buyer/seller owner or ADMIN | Status transition. Body: `{ status, reason? }`. Validated by the pure `canTransition()` state machine (`src/lib/order-status.ts`) — buyer can only move to `CANCELLED` (through `PENDING`/`CONFIRMED`); seller/admin drive the forward pipeline and `REJECTED`. Cancel/reject restores stock (`InventoryLog`, reason `RETURN`), writes an `AuditLog` row, and notifies the other party. A COD order's `Payment` is marked `PAID` automatically when it reaches `DELIVERED`. |
+| `PATCH /api/orders/[id]` | buyer/seller owner, assigned DELIVERY_PARTNER, or ADMIN | Status transition. Body: `{ status, reason? }`. Validated by the pure `canTransition()` state machine (`src/lib/order-status.ts`) — buyer can only move to `CANCELLED` (through `PENDING`/`CONFIRMED`); seller/admin drive the forward pipeline (`PENDING→…→READY`) and `REJECTED`; an assigned delivery partner can only advance `PICKED_UP→OUT_FOR_DELIVERY→DELIVERED` on orders assigned to them. Cancel/reject restores stock (`InventoryLog`, reason `RETURN`), writes an `AuditLog` row, and notifies the other party. A COD order's `Payment` is marked `PAID` automatically when it reaches `DELIVERED`. |
+| `PATCH /api/orders/[id]/delivery-partner` | seller owner or ADMIN | Assign/unassign a delivery partner. Body: `{ deliveryPartnerId: string \| null }`; the target must be an admin-`APPROVED` partner. Not allowed once the order is `DELIVERED`/`CANCELLED`/`REJECTED`. |
 
 ## Payments
 
@@ -98,6 +99,16 @@ Every order gets a `Payment` row at creation (`src/lib/payment-gateway.ts` — a
 | `GET /api/seller/product-requests` | SELLER | Requests directed at the store. |
 | `PATCH /api/seller/product-requests/[id]` | SELLER (own store) | Respond available/unavailable + price/message, optionally attach an existing product; notifies the buyer. |
 
+## Delivery (delivery partner role)
+
+A `DELIVERY_PARTNER` account follows the same OTP-login + approval-gate pattern as a seller: register (`POST /api/delivery/profile`) after first login, then wait for admin approval before `/delivery/*` pages unlock (mirrors `Store`'s `PENDING→APPROVED` gate, via the `DeliveryPartner` model). Assignment is platform-wide — any seller can assign any admin-approved partner to their order (no geo-matching yet).
+
+| Method & path | Auth | Notes |
+|---|---|---|
+| `GET/PATCH /api/delivery/profile` `POST /api/delivery/profile` | DELIVERY_PARTNER | Own profile: `vehicleType`, `isAvailable` toggle. POST registers (409 if one already exists). |
+| `GET /api/delivery/orders` | DELIVERY_PARTNER | Orders assigned to the caller. `?group=active\|completed`. |
+| `GET /api/seller/delivery-partners` | SELLER | The assignment pool — every admin-`APPROVED` delivery partner. |
+
 ## Admin
 
 | Method & path | Auth | Notes |
@@ -105,5 +116,6 @@ Every order gets a `Payment` row at creation (`src/lib/payment-gateway.ts` — a
 | `GET/POST /api/admin/categories` `PATCH/DELETE /api/admin/categories/[id]` | ADMIN | Global categories. |
 | `GET /api/admin/stores` `PATCH /api/admin/stores/[id]` | ADMIN | Approve/reject/suspend; writes an `AuditLog` row. |
 | `GET /api/admin/users` `PATCH /api/admin/users/[id]` | ADMIN | Activate/deactivate; writes an `AuditLog` row. |
+| `GET /api/admin/delivery-partners` `PATCH /api/admin/delivery-partners/[id]` | ADMIN | Approve/reject/suspend delivery partner applications; writes an `AuditLog` row. |
 | `GET /api/admin/orders` | ADMIN | All orders, platform-wide. |
 | `GET /api/admin/stats` | ADMIN | Platform overview tiles. |

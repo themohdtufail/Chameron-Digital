@@ -6,7 +6,7 @@ import type { OrderStatus } from "@prisma/client";
 
 const GROUPS: Record<string, OrderStatus[]> = {
   new: ["PENDING"],
-  accepted: ["CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY"],
+  accepted: ["CONFIRMED", "PREPARING", "READY", "PICKED_UP", "OUT_FOR_DELIVERY"],
   completed: ["DELIVERED"],
   cancelled: ["CANCELLED", "REJECTED"],
 };

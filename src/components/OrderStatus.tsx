@@ -1,4 +1,4 @@
-import { Check, Clock, ChefHat, PackageCheck, Truck, Home, XCircle } from "lucide-react";
+import { Check, Clock, ChefHat, PackageCheck, PackageSearch, Truck, Home, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type OrderStatusValue =
@@ -6,16 +6,21 @@ export type OrderStatusValue =
   | "CONFIRMED"
   | "PREPARING"
   | "READY"
+  | "PICKED_UP"
   | "OUT_FOR_DELIVERY"
   | "DELIVERED"
   | "CANCELLED"
   | "REJECTED";
 
-const STEPS: { key: OrderStatusValue; label: string; icon: typeof Clock }[] = [
+// PICKED_UP only appears in the timeline for delivery-partner-fulfilled
+// orders; self-fulfillment orders skip straight from READY to
+// OUT_FOR_DELIVERY, so the timeline is built dynamically per order.
+const ALL_STEPS: { key: OrderStatusValue; label: string; icon: typeof Clock }[] = [
   { key: "PENDING", label: "Pending", icon: Clock },
   { key: "CONFIRMED", label: "Confirmed", icon: Check },
   { key: "PREPARING", label: "Preparing", icon: ChefHat },
   { key: "READY", label: "Ready", icon: PackageCheck },
+  { key: "PICKED_UP", label: "Picked up", icon: PackageSearch },
   { key: "OUT_FOR_DELIVERY", label: "Out for delivery", icon: Truck },
   { key: "DELIVERED", label: "Delivered", icon: Home },
 ];
@@ -25,6 +30,7 @@ const TONE: Record<OrderStatusValue, string> = {
   CONFIRMED: "bg-brand-50 text-brand-600",
   PREPARING: "bg-brand-50 text-brand-600",
   READY: "bg-brand-50 text-brand-600",
+  PICKED_UP: "bg-brand-50 text-brand-600",
   OUT_FOR_DELIVERY: "bg-brand-50 text-brand-600",
   DELIVERED: "bg-success-50 text-success-600",
   CANCELLED: "bg-zinc-100 text-zinc-500",
@@ -39,7 +45,7 @@ export function OrderStatusBadge({ status }: { status: OrderStatusValue }) {
   );
 }
 
-export function OrderStatusTimeline({ status }: { status: OrderStatusValue }) {
+export function OrderStatusTimeline({ status, hasDeliveryPartner }: { status: OrderStatusValue; hasDeliveryPartner?: boolean }) {
   if (status === "CANCELLED" || status === "REJECTED") {
     return (
       <div className="flex items-center gap-3 rounded-xl bg-danger-50 p-4">
@@ -56,6 +62,8 @@ export function OrderStatusTimeline({ status }: { status: OrderStatusValue }) {
     );
   }
 
+  const showPickedUp = hasDeliveryPartner || status === "PICKED_UP";
+  const STEPS = showPickedUp ? ALL_STEPS : ALL_STEPS.filter((s) => s.key !== "PICKED_UP");
   const currentIndex = STEPS.findIndex((s) => s.key === status);
 
   return (

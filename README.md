@@ -82,7 +82,8 @@ Defined in [`prisma/schema.prisma`](./prisma/schema.prisma). Key models:
 
 | Model | Purpose |
 |---|---|
-| `User` | Single identity table with a `role` (`BUYER` / `SELLER` / `ADMIN`). Phone is the unique login key. |
+| `User` | Single identity table with a `role` (`BUYER` / `SELLER` / `ADMIN` / `DELIVERY_PARTNER`). Phone is the unique login key. |
+| `DeliveryPartner` | Profile for the `DELIVERY_PARTNER` role — same approval-gate pattern as `Store` (`PENDING`→`APPROVED`), platform-wide (not store-scoped). |
 | `OtpCode` | Short-lived, hashed OTP codes with attempt limiting. |
 | `Session` | Server-tracked sessions (hashed token) so a session can be revoked; the JWT cookie references it by id. |
 | `Location` | A buyer's saved/current addresses **and** the shipping address snapshot source for orders. |

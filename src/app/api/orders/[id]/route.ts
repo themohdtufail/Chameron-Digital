@@ -10,6 +10,7 @@ const STATUS_LABEL: Record<string, string> = {
   CONFIRMED: "confirmed",
   PREPARING: "being prepared",
   READY: "ready for pickup/delivery",
+  PICKED_UP: "picked up by the delivery partner",
   OUT_FOR_DELIVERY: "out for delivery",
   DELIVERED: "delivered",
   REJECTED: "rejected",
@@ -24,6 +25,7 @@ export const GET = withApiErrors(async (_req: NextRequest, { params }: { params:
       items: true,
       store: { select: { id: true, name: true, logoUrl: true, slug: true, phone: true, ownerId: true } },
       buyer: { select: { name: true, phone: true } },
+      deliveryPartner: { select: { name: true, phone: true } },
       address: true,
     },
   });
@@ -31,7 +33,10 @@ export const GET = withApiErrors(async (_req: NextRequest, { params }: { params:
 
   const isBuyerOwner = order.buyerId === user.id;
   const isSellerOwner = order.store.ownerId === user.id;
-  if (!isBuyerOwner && !isSellerOwner && user.role !== "ADMIN") return jsonError("Forbidden", 403);
+  const isAssignedPartner = user.role === "DELIVERY_PARTNER" && order.deliveryPartnerId === user.id;
+  if (!isBuyerOwner && !isSellerOwner && !isAssignedPartner && user.role !== "ADMIN") {
+    return jsonError("Forbidden", 403);
+  }
 
   return NextResponse.json({ order });
 });
@@ -41,6 +46,7 @@ const updateSchema = z.object({
     "CONFIRMED",
     "PREPARING",
     "READY",
+    "PICKED_UP",
     "OUT_FOR_DELIVERY",
     "DELIVERED",
     "REJECTED",
@@ -61,11 +67,21 @@ export const PATCH = withApiErrors(async (req: NextRequest, { params }: { params
 
   const isSellerOwner = order.store.ownerId === user.id;
   const isBuyerOwner = order.buyerId === user.id;
+  const isAssignedPartner = user.role === "DELIVERY_PARTNER" && order.deliveryPartnerId === user.id;
   const isCancellingOrRejecting = status === "CANCELLED" || status === "REJECTED";
 
-  if (!isBuyerOwner && !isSellerOwner && user.role !== "ADMIN") return jsonError("Forbidden", 403);
+  if (!isBuyerOwner && !isSellerOwner && !isAssignedPartner && user.role !== "ADMIN") {
+    return jsonError("Forbidden", 403);
+  }
 
-  const actor = isBuyerOwner && !isSellerOwner ? "BUYER" : user.role === "ADMIN" ? "ADMIN" : "SELLER";
+  const actor =
+    isBuyerOwner && !isSellerOwner
+      ? "BUYER"
+      : user.role === "ADMIN"
+        ? "ADMIN"
+        : isAssignedPartner
+          ? "DELIVERY_PARTNER"
+          : "SELLER";
   const check = canTransition(order.status as OrderStatus, status, actor);
   if (!check.allowed) return jsonError(check.reason ?? "Forbidden", check.status ?? 400);
 
@@ -74,7 +90,9 @@ export const PATCH = withApiErrors(async (req: NextRequest, { params }: { params
       where: { id: order.id },
       data: isCancellingOrRejecting
         ? { status, cancelledById: user.id, cancelReason: reason, cancelledAt: new Date() }
-        : { status },
+        : status === "PICKED_UP"
+          ? { status, pickedUpAt: new Date() }
+          : { status },
     });
 
     if (isCancellingOrRejecting) {

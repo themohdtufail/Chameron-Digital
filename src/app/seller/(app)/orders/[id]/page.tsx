@@ -3,8 +3,9 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, MapPin, Phone, User } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { OrderStatusBadge, type OrderStatusValue } from "@/components/OrderStatus";
+import { OrderStatusBadge, OrderStatusTimeline, type OrderStatusValue } from "@/components/OrderStatus";
 import { SellerOrderActions } from "@/components/seller/SellerOrderActions";
+import { DeliveryPartnerPicker } from "@/components/seller/DeliveryPartnerPicker";
 import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
 
   const order = await prisma.order.findFirst({
     where: { id: params.id, storeId: store.id },
-    include: { items: true, buyer: true },
+    include: { items: true, buyer: true, deliveryPartner: { select: { name: true, phone: true } } },
   });
   if (!order) notFound();
 
@@ -36,6 +37,10 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
           <p className="text-sm text-zinc-500">Placed {order.createdAt.toLocaleString()}</p>
           <OrderStatusBadge status={order.status as OrderStatusValue} />
         </div>
+
+        <section className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-card">
+          <OrderStatusTimeline status={order.status as OrderStatusValue} hasDeliveryPartner={Boolean(order.deliveryPartnerId)} />
+        </section>
 
         <section className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-card">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-zinc-900">
@@ -98,13 +103,23 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
           </div>
         </section>
 
+        <DeliveryPartnerPicker orderId={order.id} status={order.status} assigned={order.deliveryPartner} />
+
         <div className="hidden lg:block">
-          <SellerOrderActions orderId={order.id} status={order.status as OrderStatusValue} />
+          <SellerOrderActions
+            orderId={order.id}
+            status={order.status as OrderStatusValue}
+            hasDeliveryPartner={Boolean(order.deliveryPartnerId)}
+          />
         </div>
       </div>
 
       <div className="action-bar fixed inset-x-0 bottom-[64px] z-40 border-t border-zinc-100 p-4 lg:hidden">
-        <SellerOrderActions orderId={order.id} status={order.status as OrderStatusValue} />
+        <SellerOrderActions
+          orderId={order.id}
+          status={order.status as OrderStatusValue}
+          hasDeliveryPartner={Boolean(order.deliveryPartnerId)}
+        />
       </div>
     </div>
   );

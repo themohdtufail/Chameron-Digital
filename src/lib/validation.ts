@@ -9,13 +9,13 @@ export const otpCodeSchema = z.string().trim().regex(/^[0-9]{4,6}$/, "Enter a va
 
 export const otpRequestSchema = z.object({
   phone: phoneSchema,
-  role: z.enum(["BUYER", "SELLER"]),
+  role: z.enum(["BUYER", "SELLER", "DELIVERY_PARTNER"]),
 });
 
 export const otpVerifySchema = z.object({
   phone: phoneSchema,
   code: otpCodeSchema,
-  role: z.enum(["BUYER", "SELLER"]),
+  role: z.enum(["BUYER", "SELLER", "DELIVERY_PARTNER"]),
   name: z.string().trim().min(2).max(80).optional(),
   email: z.string().trim().email().optional().or(z.literal("")),
 });
@@ -63,6 +63,7 @@ export const storeUpdateSchema = z.object({
   isManuallyClosed: z.boolean().optional(),
   deliveryAvailable: z.boolean().optional(),
   deliveryFee: z.number().min(0).max(10000).optional(),
+  minOrderAmount: z.number().min(0).max(10000).optional(),
   vacationMode: z.boolean().optional(),
   vacationUntil: z.string().datetime().nullable().optional(),
   hours: z.array(storeHourInputSchema).max(7).optional(),
@@ -127,6 +128,10 @@ export const inventoryAdjustSchema = z.object({
   variantId: z.string().nullable().optional(),
   delta: z.number().int().refine((n) => n !== 0, "Adjustment cannot be zero"),
   note: z.string().trim().max(200).optional(),
+});
+
+export const deliveryPartnerRegisterSchema = z.object({
+  vehicleType: z.string().trim().max(40).optional(),
 });
 
 export const locationSchema = z.object({

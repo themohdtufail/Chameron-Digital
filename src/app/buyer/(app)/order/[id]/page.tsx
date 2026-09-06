@@ -20,7 +20,12 @@ export default async function BuyerOrderDetailPage({ params }: { params: { id: s
   const user = await getCurrentUser();
   const order = await prisma.order.findFirst({
     where: { id: params.id, buyerId: user!.id },
-    include: { items: true, payment: true, store: { select: { name: true, logoUrl: true, phone: true, slug: true } } },
+    include: {
+      items: true,
+      payment: true,
+      store: { select: { name: true, logoUrl: true, phone: true, slug: true } },
+      deliveryPartner: { select: { name: true, phone: true } },
+    },
   });
 
   if (!order) notFound();
@@ -53,7 +58,7 @@ export default async function BuyerOrderDetailPage({ params }: { params: { id: s
             <p className="text-sm font-bold text-zinc-900">{order.store.name}</p>
             <OrderStatusBadge status={order.status as OrderStatusValue} />
           </div>
-          <OrderStatusTimeline status={order.status as OrderStatusValue} />
+          <OrderStatusTimeline status={order.status as OrderStatusValue} hasDeliveryPartner={Boolean(order.deliveryPartnerId)} />
         </section>
 
         <section className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-card">
@@ -97,6 +102,15 @@ export default async function BuyerOrderDetailPage({ params }: { params: { id: s
           </p>
           {order.notes && <p className="mt-2 text-xs text-zinc-400">Note: {order.notes}</p>}
         </section>
+
+        {order.deliveryPartner && (
+          <section className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-card">
+            <h2 className="mb-2 text-sm font-bold text-zinc-900">Delivery partner</h2>
+            <p className="text-sm text-zinc-600">
+              {order.deliveryPartner.name ?? "Assigned"} · {order.deliveryPartner.phone}
+            </p>
+          </section>
+        )}
 
         <section className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-card">
           <h2 className="mb-2 text-sm font-bold text-zinc-900">Payment</h2>

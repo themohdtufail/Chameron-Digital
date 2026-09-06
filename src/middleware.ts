@@ -4,6 +4,7 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/session";
 const PUBLIC_BUYER_PATHS = ["/buyer/login"];
 const PUBLIC_SELLER_PATHS = ["/seller/login"];
 const PUBLIC_ADMIN_PATHS = ["/admin/login"];
+const PUBLIC_DELIVERY_PATHS = ["/delivery/login"];
 
 function isPublic(pathname: string, publicPaths: string[]) {
   return publicPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
@@ -12,21 +13,33 @@ function isPublic(pathname: string, publicPaths: string[]) {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  let section: "buyer" | "seller" | "admin" | null = null;
+  let section: "buyer" | "seller" | "admin" | "delivery" | null = null;
   if (pathname.startsWith("/buyer")) section = "buyer";
   else if (pathname.startsWith("/seller")) section = "seller";
   else if (pathname.startsWith("/admin")) section = "admin";
+  else if (pathname.startsWith("/delivery")) section = "delivery";
   if (!section) return NextResponse.next();
 
-  const publicPaths =
-    section === "buyer" ? PUBLIC_BUYER_PATHS : section === "seller" ? PUBLIC_SELLER_PATHS : PUBLIC_ADMIN_PATHS;
-  if (isPublic(pathname, publicPaths)) return NextResponse.next();
+  type Section = "buyer" | "seller" | "admin" | "delivery";
+  const PUBLIC_PATHS: Record<Section, string[]> = {
+    buyer: PUBLIC_BUYER_PATHS,
+    seller: PUBLIC_SELLER_PATHS,
+    admin: PUBLIC_ADMIN_PATHS,
+    delivery: PUBLIC_DELIVERY_PATHS,
+  };
+  if (isPublic(pathname, PUBLIC_PATHS[section])) return NextResponse.next();
 
   const token = req.cookies.get(SESSION_COOKIE)?.value;
   const session = token ? await verifySessionToken(token) : null;
 
   const loginPath = `/${section}/login`;
-  const expectedRole = section.toUpperCase();
+  const SECTION_ROLE: Record<Section, string> = {
+    buyer: "BUYER",
+    seller: "SELLER",
+    admin: "ADMIN",
+    delivery: "DELIVERY_PARTNER",
+  };
+  const expectedRole = SECTION_ROLE[section];
 
   if (!session || session.role !== expectedRole) {
     const url = req.nextUrl.clone();
@@ -39,5 +52,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/buyer/:path*", "/seller/:path*", "/admin/:path*"],
+  matcher: ["/buyer/:path*", "/seller/:path*", "/admin/:path*", "/delivery/:path*"],
 };

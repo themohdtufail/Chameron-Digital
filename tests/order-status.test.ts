@@ -6,6 +6,7 @@ const ALL_STATUSES: OrderStatus[] = [
   "CONFIRMED",
   "PREPARING",
   "READY",
+  "PICKED_UP",
   "OUT_FOR_DELIVERY",
   "DELIVERED",
   "CANCELLED",
@@ -60,6 +61,42 @@ describe("canTransition — the seller/admin forward path", () => {
     const result = canTransition("READY", "REJECTED", "SELLER");
     expect(result.allowed).toBe(false);
     expect(result.status).toBe(400);
+  });
+});
+
+describe("canTransition — delivery-partner fulfillment path", () => {
+  it("allows SELLER/ADMIN to hand an order to a delivery partner (READY -> PICKED_UP)", () => {
+    expect(canTransition("READY", "PICKED_UP", "SELLER")).toEqual({ allowed: true });
+    expect(canTransition("READY", "PICKED_UP", "ADMIN")).toEqual({ allowed: true });
+  });
+
+  it("still allows self-fulfillment straight from READY (no partner involved)", () => {
+    expect(canTransition("READY", "OUT_FOR_DELIVERY", "SELLER")).toEqual({ allowed: true });
+  });
+
+  it("allows a DELIVERY_PARTNER to advance PICKED_UP -> OUT_FOR_DELIVERY -> DELIVERED", () => {
+    expect(canTransition("PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERY_PARTNER")).toEqual({ allowed: true });
+    expect(canTransition("OUT_FOR_DELIVERY", "DELIVERED", "DELIVERY_PARTNER")).toEqual({ allowed: true });
+  });
+
+  it("rejects a DELIVERY_PARTNER touching any of the seller's prep steps", () => {
+    for (const [from, to] of [
+      ["PENDING", "CONFIRMED"],
+      ["CONFIRMED", "PREPARING"],
+      ["PREPARING", "READY"],
+      ["READY", "PICKED_UP"],
+      ["READY", "OUT_FOR_DELIVERY"],
+    ] as [OrderStatus, OrderStatus][]) {
+      const result = canTransition(from, to, "DELIVERY_PARTNER");
+      expect(result.allowed).toBe(false);
+      expect(result.status).toBe(400);
+    }
+  });
+
+  it("rejects a DELIVERY_PARTNER cancelling an order", () => {
+    const result = canTransition("PENDING", "CANCELLED", "DELIVERY_PARTNER");
+    expect(result.allowed).toBe(false);
+    expect(result.status).toBe(403);
   });
 });
 

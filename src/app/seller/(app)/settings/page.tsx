@@ -50,6 +50,7 @@ export default function SellerSettingsPage() {
     closingTime: "21:00",
     deliveryAvailable: true,
     deliveryFee: 0,
+    minOrderAmount: 0,
     vacationMode: false,
   });
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -79,6 +80,7 @@ export default function SellerSettingsPage() {
           closingTime: s.closingTime ?? "21:00",
           deliveryAvailable: s.deliveryAvailable,
           deliveryFee: s.deliveryFee ?? 0,
+          minOrderAmount: s.minOrderAmount ?? 0,
           vacationMode: s.vacationMode ?? false,
         });
         setLogoUrl(s.logoUrl);
@@ -256,6 +258,13 @@ export default function SellerSettingsPage() {
           type="number"
           value={form.deliveryFee}
           onChange={(e) => set("deliveryFee", Number(e.target.value))}
+        />
+
+        <Input
+          label="Minimum order amount (₹)"
+          type="number"
+          value={form.minOrderAmount}
+          onChange={(e) => set("minOrderAmount", Number(e.target.value))}
         />
 
         <Button size="lg" fullWidth loading={saving} onClick={save} className="mt-2">

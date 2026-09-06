@@ -6,7 +6,7 @@ import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
-type Role = "BUYER" | "SELLER";
+type Role = "BUYER" | "SELLER" | "DELIVERY_PARTNER";
 
 interface Me {
   id: string;
@@ -15,6 +15,8 @@ interface Me {
   phone: string;
   hasStore: boolean;
   storeStatus: string | null;
+  hasDeliveryProfile?: boolean;
+  deliveryPartnerStatus?: string | null;
 }
 
 export function AuthOtpForm({

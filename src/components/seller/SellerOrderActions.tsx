@@ -11,10 +11,25 @@ const NEXT_ACTION: Partial<Record<OrderStatusValue, { label: string; status: Ord
   CONFIRMED: { label: "Start preparing", status: "PREPARING", variant: "primary" },
   PREPARING: { label: "Mark ready", status: "READY", variant: "primary" },
   READY: { label: "Out for delivery", status: "OUT_FOR_DELIVERY", variant: "primary" },
+  PICKED_UP: { label: "Mark out for delivery", status: "OUT_FOR_DELIVERY", variant: "primary" },
   OUT_FOR_DELIVERY: { label: "Mark delivered", status: "DELIVERED", variant: "primary" },
 };
 
-export function SellerOrderActions({ orderId, status }: { orderId: string; status: OrderStatusValue }) {
+// READY has two possible next steps depending on whether a delivery
+// partner is assigned — self-fulfillment skips straight to
+// OUT_FOR_DELIVERY (unchanged default), an assigned partner is handed off
+// via PICKED_UP first.
+const READY_WITH_PARTNER = { label: "Mark picked up", status: "PICKED_UP" as OrderStatusValue, variant: "primary" as const };
+
+export function SellerOrderActions({
+  orderId,
+  status,
+  hasDeliveryPartner,
+}: {
+  orderId: string;
+  status: OrderStatusValue;
+  hasDeliveryPartner?: boolean;
+}) {
   const [loading, setLoading] = useState<string | null>(null);
   const router = useRouter();
 
@@ -35,7 +50,7 @@ export function SellerOrderActions({ orderId, status }: { orderId: string; statu
     router.refresh();
   }
 
-  const next = NEXT_ACTION[status];
+  const next = status === "READY" && hasDeliveryPartner ? READY_WITH_PARTNER : NEXT_ACTION[status];
   const canReject = status === "PENDING" || status === "CONFIRMED";
 
   if (!next && !canReject) return null;
