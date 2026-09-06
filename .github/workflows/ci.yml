@@ -1,0 +1,114 @@
+name: CI
+
+# Runs on every pull request and every push to the production branch (main).
+# This is a quality gate only — it never deploys anything. Vercel's own
+# GitHub integration (configured outside this repo, in the Vercel
+# dashboard) independently builds and deploys previews for pushes/PRs and
+# production for pushes to main; this workflow does not trigger, replace,
+# or interact with that in any way.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Least-privilege default: this workflow only reads repository contents.
+# It never needs to write PR comments, push commits, or touch packages.
+permissions:
+  contents: read
+
+# Cancel a stale run for the same PR/branch when new commits arrive, so CI
+# results always reflect the latest commit.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # A local, ephemeral database that lives only for the duration of this CI
+  # job (see the `postgres:` service below). It is never reachable from
+  # outside the runner and is destroyed when the job ends. This is NOT the
+  # production database — no production credentials exist in this workflow.
+  DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/chameron_ci"
+  DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/chameron_ci"
+  # Placeholder values only — none of these are real credentials. They exist
+  # so the app's env-var reads don't hit an undefined value during build/test.
+  JWT_SECRET: "ci-placeholder-secret-not-a-real-credential"
+  JWT_EXPIRES_IN_DAYS: "30"
+  ADMIN_PHONE: "+911234567890"
+  ADMIN_PASSWORD: "CiPlaceholder@123"
+  OTP_DEV_MODE: "true"
+  OTP_DEV_STATIC_CODE: "123456"
+  STORAGE_DRIVER: "local"
+  NEXT_PUBLIC_APP_NAME: "Chameron Digital"
+  NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+
+jobs:
+  quality-gate:
+    name: Test, typecheck, lint, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # An ephemeral Postgres for this job only. `npm test` includes a real
+    # DB-integration test (rate limiting) and `npm run build` runs
+    # `prisma migrate deploy`, so a database is genuinely required — this
+    # container is that database, and it is not, and cannot be, production.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: chameron_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      # Installs exactly what package-lock.json pins — never resolves fresh
+      # versions the way `npm install` can. Runs the repo's existing
+      # `postinstall` (`prisma generate`) automatically.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      # Applies the repo's committed migrations to the ephemeral CI database
+      # above (never production) so the test suite's DB-integration test has
+      # a real schema to run against.
+      - name: Apply database migrations (CI database only)
+        run: npx prisma migrate deploy
+
+      - name: Test
+        run: npm test
+
+      # Re-runs `prisma migrate deploy` (a no-op here, already applied above)
+      # then `next build` — this is the repository's actual, unmodified
+      # `npm run build` script.
+      - name: Production build
+        run: npm run build
+
+# A `dependency-review` job (actions/dependency-review-action, flagging
+# high-severity vulnerabilities in newly-added dependencies on PRs) was
+# tried here and removed: it requires the repository's Dependency graph
+# setting to be enabled first (Settings -> Security -> Dependency graph),
+# which is currently off, and the action hard-fails without it ("Dependency
+# review is not supported on this repository"). Turning that setting on is a
+# one-click, no-risk change a repo admin can make; once it's on, re-add the
+# job above (see docs/CI_CD.md for the exact snippet) rather than leaving a
+# job in this file that can never pass today.

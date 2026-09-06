@@ -1,0 +1,1080 @@
+// Chameron Digital — Prisma schema
+// Postgres in production; see README for local setup.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  BUYER
+  SELLER
+  ADMIN
+  DELIVERY_PARTNER
+}
+
+// UNDER_REVIEW is additive: it sits between PENDING and APPROVED/REJECTED
+// once a seller has submitted verification documents for review, but
+// every existing PENDING/APPROVED/REJECTED/SUSPENDED row and code path
+// keeps working untouched.
+enum StoreStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum StoreDocumentType {
+  SHOP_PROOF
+  GST
+  FSSAI
+  BUSINESS_CERTIFICATE
+}
+
+enum NotificationChannel {
+  IN_APP
+  WHATSAPP
+}
+
+enum ProductStatus {
+  AVAILABLE
+  OUT_OF_STOCK
+  HIDDEN
+}
+
+// PENDING -> CONFIRMED -> PREPARING -> READY -> [PICKED_UP ->] OUT_FOR_DELIVERY -> DELIVERED
+// PICKED_UP is only entered when a delivery partner is fulfilling the order;
+// self-fulfillment (no partner) skips it and goes READY -> OUT_FOR_DELIVERY.
+// PENDING/CONFIRMED -> CANCELLED (buyer-initiated)
+// PENDING/CONFIRMED -> REJECTED (seller-initiated)
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  PICKED_UP
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  REJECTED
+}
+
+enum DeliveryPartnerStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum PaymentMethod {
+  COD
+  ONLINE
+}
+
+// PAID is the "payment succeeded" terminal state (kept as-is rather than
+// renamed to SUCCESS so existing rows/queries stay valid); PROCESSING is an
+// additive in-flight state for gateway-driven (ONLINE) payments.
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum OtpPurpose {
+  LOGIN
+  REGISTER
+}
+
+enum VariantType {
+  SIZE
+  COLOR
+  MATERIAL
+}
+
+enum InventoryChangeReason {
+  ORDER
+  MANUAL
+  RESTOCK
+  RETURN
+}
+
+enum NotificationType {
+  ORDER_PLACED
+  ORDER_CONFIRMED
+  ORDER_STATUS_CHANGED
+  ORDER_CANCELLED
+  NEW_ORDER
+  LOW_STOCK
+  PRODUCT_REQUEST_RECEIVED
+  PRODUCT_REQUEST_RESPONSE
+  DELIVERY_ASSIGNED
+  BACK_IN_STOCK
+  PRICE_DROP
+  SUPPORT_TICKET_REPLY
+}
+
+enum SupportTicketCategory {
+  ORDER
+  PAYMENT
+  ACCOUNT
+  PRODUCT
+  OTHER
+}
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum LoyaltyTransactionType {
+  EARNED
+  REDEEMED
+  REFUNDED
+  ADJUSTED
+}
+
+enum CouponType {
+  PERCENTAGE
+  FIXED
+}
+
+enum ProductRequestStatus {
+  PENDING
+  RESPONDED
+  ACCEPTED
+  DECLINED
+  CONVERTED
+}
+
+// ---------------------------------------------------------------------------
+// Identity & Auth
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String   @id @default(cuid())
+  role          Role     @default(BUYER)
+  name          String?
+  phone         String   @unique
+  email         String?
+  passwordHash  String? // used for ADMIN accounts only; buyers/sellers use OTP
+  avatarUrl     String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  store            Store?
+  cart             Cart?
+  addresses        Location[]
+  orders           Order[]           @relation("BuyerOrders")
+  deliveries       Order[]           @relation("DeliveryPartnerOrders")
+  deliveryPartner  DeliveryPartner?
+  loyaltyAccount   LoyaltyAccount?
+  reviews          Review[]
+  sessions         Session[]
+  wishlist         Wishlist[]
+  notifications    Notification[]
+  productRequests  ProductRequest[]
+  inventoryLogs    InventoryLog[]    @relation("InventoryActor")
+  auditLogs        AuditLog[]        @relation("AuditActor")
+  supportTickets       SupportTicket[]
+  supportTicketReplies SupportTicketReply[]
+  refundsRequested     Refund[]
+  payoutsProcessed     Payout[]
+
+  @@index([role])
+}
+
+// Profile for the DELIVERY_PARTNER role, mirroring Store's approval-gate
+// pattern (PENDING until admin review). Platform-wide, not store-scoped —
+// any seller can assign any APPROVED + available partner to their order.
+model DeliveryPartner {
+  id              String                @id @default(cuid())
+  userId          String                @unique
+  user            User                  @relation(fields: [userId], references: [id])
+  vehicleType     String?
+  status          DeliveryPartnerStatus @default(PENDING)
+  isAvailable     Boolean               @default(true)
+  rejectionReason String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([status])
+}
+
+model OtpCode {
+  id         String     @id @default(cuid())
+  phone      String
+  codeHash   String
+  purpose    OtpPurpose @default(LOGIN)
+  attempts   Int        @default(0)
+  consumed   Boolean    @default(false)
+  expiresAt  DateTime
+  createdAt  DateTime   @default(now())
+
+  @@index([phone, purpose])
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique
+  userAgent  String?
+  ip         String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Fixed-window counter used by the DB-backed rate limiter (src/lib/rate-limit.ts).
+// No in-memory state is used since serverless invocations don't share memory.
+model RateLimitHit {
+  id          String   @id @default(cuid())
+  identifier  String // phone, IP, or userId depending on the action
+  action      String // e.g. "otp_request", "admin_login", "order_create"
+  windowStart DateTime
+  count       Int      @default(1)
+
+  @@unique([identifier, action, windowStart])
+}
+
+// ---------------------------------------------------------------------------
+// Multi-city
+// ---------------------------------------------------------------------------
+
+// Reference data only — Store.city/Location.city stay the free-text strings
+// they've always been (every existing query, the seed data, and discovery
+// filters keep working unmodified). cityId FKs below are nullable and purely
+// additive, giving new code a real relation to build on without a
+// destructive backfill-or-break migration. isActive gates which cities
+// actually accept new sellers/orders vs. exist as a placeholder for later.
+model City {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  state     String
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  areas     Area[]
+  stores    Store[]
+  locations Location[]
+}
+
+model Area {
+  id     String @id @default(cuid())
+  name   String
+  cityId String
+  city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@unique([cityId, name])
+}
+
+// ---------------------------------------------------------------------------
+// Location / Address
+// ---------------------------------------------------------------------------
+
+// Serves three roles: a buyer's detected/current location, their saved
+// address book, and the checkout shipping address (via Order.addressId).
+model Location {
+  id                  String   @id @default(cuid())
+  userId              String?
+  user                User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label               String   @default("Current")
+  fullName            String?
+  phone               String?
+  addressLine         String?
+  landmark            String?
+  area                String?
+  city                String
+  cityId              String?
+  cityRef             City?    @relation(fields: [cityId], references: [id])
+  state               String?
+  pincode             String?
+  country             String   @default("India")
+  deliveryInstructions String?
+  latitude            Float?
+  longitude           Float?
+  isDefault           Boolean  @default(false)
+  isCurrent           Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  orders      Order[]
+
+  @@index([userId])
+  @@index([city])
+  @@index([cityId])
+}
+
+// ---------------------------------------------------------------------------
+// Catalog
+// ---------------------------------------------------------------------------
+
+// Global, admin-managed business categories (Fashion, Food, Electronics...)
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  icon      String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  stores         Store[]
+  commissionRules CommissionRule[]
+}
+
+enum CommissionScope {
+  GLOBAL
+  CATEGORY
+  STORE
+}
+
+// Resolved store > category > global > DEFAULT_COMMISSION_PERCENTAGE
+// (src/lib/pricing.ts's resolveCommissionPercentage — pure and unit
+// tested). "category" here is a store's own business Category (Fashion,
+// Food, ...), the only category concept that spans an entire order.
+model CommissionRule {
+  id         String          @id @default(cuid())
+  scope      CommissionScope
+  categoryId String?
+  category   Category?       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  storeId    String?
+  store      Store?          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  percentage Float
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@index([scope])
+  @@index([storeId])
+  @@index([categoryId])
+}
+
+// Seller-defined in-store navigation categories (Men, Women, Kids, Offers)
+model ProductCategory {
+  id        String    @id @default(cuid())
+  storeId   String
+  store     Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name      String
+  slug      String
+  position  Int       @default(0)
+  isHidden  Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  products  Product[]
+
+  @@unique([storeId, slug])
+}
+
+model StoreHours {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  dayOfWeek Int // 0 = Sunday ... 6 = Saturday
+  isClosed  Boolean  @default(false)
+  openTime  String? // "HH:mm"
+  closeTime String? // "HH:mm"
+
+  @@unique([storeId, dayOfWeek])
+}
+
+model Store {
+  id                     String      @id @default(cuid())
+  ownerId                String      @unique
+  owner                  User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name                   String
+  slug                   String      @unique
+  categoryId             String?
+  category               Category?   @relation(fields: [categoryId], references: [id])
+  description            String?
+  logoUrl                String?
+  coverUrl               String?
+  phone                  String
+  email                  String?
+  addressLine            String?
+  area                   String?
+  city                   String
+  cityId                 String?
+  cityRef                City?       @relation(fields: [cityId], references: [id])
+  state                  String?
+  country                String      @default("India")
+  latitude               Float?
+  longitude              Float?
+  openingTime            String      @default("09:00") // fallback used when no StoreHours rows exist
+  closingTime            String      @default("21:00")
+  isManuallyClosed       Boolean     @default(false)
+  vacationMode           Boolean     @default(false)
+  vacationUntil          DateTime?
+  deliveryAvailable      Boolean     @default(true)
+  deliveryFee            Float       @default(0)
+  deliveryRadius         Float? // km
+  estimatedDeliveryMinutes Int?
+  minOrderAmount         Float       @default(0)
+  status                 StoreStatus @default(PENDING)
+  rejectionReason        String?
+  isVerified             Boolean     @default(false)
+  ratingAvg              Float       @default(0)
+  ratingCount            Int         @default(0)
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
+
+  hours             StoreHours[]
+  productCategories ProductCategory[]
+  products          Product[]
+  orders            Order[]
+  reviews           Review[]
+  productRequests   ProductRequest[]
+  documents         StoreDocument[]
+  subscription      SellerSubscription?
+  commissionRules   CommissionRule[]
+  coupons           Coupon[]
+  payouts           Payout[]
+
+  @@index([status])
+  @@index([city])
+  @@index([cityId])
+  @@index([categoryId])
+}
+
+// Verification documents backing Store.isVerified — kept separate from the
+// status approval gate (decision #6): a store can be APPROVED and trading
+// before it's ever verified; isVerified is a buyer-facing trust badge an
+// admin sets only after reviewing these uploads.
+model StoreDocument {
+  id         String            @id @default(cuid())
+  storeId    String
+  store      Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  type       StoreDocumentType
+  // A storage reference, not a directly-usable URL: the local driver still
+  // writes a servable path here, but the S3 driver writes a private object
+  // key that must be resolved through getSignedUrl() before it can be
+  // fetched — the "url" name would silently mislead callers into rendering
+  // an unresolved private key, so this was renamed from the original `url`
+  // column (a straight rename, no data changed/dropped — see the
+  // accompanying migration).
+  key        String
+  uploadedAt DateTime          @default(now())
+
+  @@index([storeId])
+}
+
+// ---------------------------------------------------------------------------
+// Subscriptions
+// ---------------------------------------------------------------------------
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+// Seeded STARTER/GROWTH/PREMIUM. `features` is a capability map
+// ({ maxProducts, ai, whatsappTemplates, advancedAnalytics }) read by
+// hasFeature()/getPlanFeatures() (src/lib/subscription.ts) rather than a
+// wall of boolean columns, so adding a new gated feature later is a data
+// change, not a migration.
+model SubscriptionPlan {
+  id           String   @id @default(cuid())
+  key          String   @unique
+  name         String
+  priceMonthly Float
+  features     Json
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  subscriptions SellerSubscription[]
+}
+
+model SellerSubscription {
+  id         String             @id @default(cuid())
+  storeId    String             @unique
+  store      Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  planId     String
+  plan       SubscriptionPlan   @relation(fields: [planId], references: [id])
+  status     SubscriptionStatus @default(TRIAL)
+  startDate  DateTime           @default(now())
+  expiryDate DateTime
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  @@index([status])
+  @@index([expiryDate])
+}
+
+model Product {
+  id                String            @id @default(cuid())
+  storeId           String
+  store             Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  categoryId        String?
+  category          ProductCategory?  @relation(fields: [categoryId], references: [id])
+  name              String
+  slug              String            @unique
+  description       String?
+  specifications    Json?
+  sku               String?
+  price             Float
+  discountPrice     Float?
+  stockQuantity     Int               @default(0)
+  lowStockThreshold Int               @default(5)
+  trackInventory    Boolean           @default(true)
+  status            ProductStatus     @default(AVAILABLE)
+  videoUrl          String?
+  ratingAvg         Float             @default(0)
+  ratingCount       Int               @default(0)
+  isHidden          Boolean           @default(false)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  images            ProductImage[]
+  variants          ProductVariant[]
+  cartItems         CartItem[]
+  orderItems        OrderItem[]
+  reviews           Review[]
+  wishlistedBy      Wishlist[]
+  inventoryLogs     InventoryLog[]
+  fulfilledRequests ProductRequest[]
+
+  @@index([storeId])
+  @@index([status])
+}
+
+model ProductImage {
+  id         String  @id @default(cuid())
+  productId  String
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url        String
+  position   Int     @default(0)
+
+  @@index([productId])
+}
+
+model ProductVariant {
+  id            String      @id @default(cuid())
+  productId     String
+  product       Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type          VariantType
+  value         String
+  sku           String?
+  priceDelta    Float       @default(0)
+  stockQuantity Int         @default(0)
+
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  inventoryLogs InventoryLog[]
+
+  @@index([productId])
+}
+
+// ---------------------------------------------------------------------------
+// Cart
+// ---------------------------------------------------------------------------
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id         String          @id @default(cuid())
+  cartId     String
+  cart       Cart            @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId  String?
+  variant    ProductVariant? @relation(fields: [variantId], references: [id])
+  quantity   Int             @default(1)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@unique([cartId, productId, variantId])
+  @@index([cartId])
+}
+
+// ---------------------------------------------------------------------------
+// Wishlist
+// ---------------------------------------------------------------------------
+
+model Wishlist {
+  id        String   @id @default(cuid())
+  buyerId   String
+  buyer     User     @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([buyerId, productId])
+  @@index([buyerId])
+}
+
+// ---------------------------------------------------------------------------
+// Loyalty
+// ---------------------------------------------------------------------------
+
+// Architecture-only-if-not-fully-launching per the brief; this is a real,
+// working slice (earn on delivery, redeem at checkout) using a hardcoded
+// rate rather than PlatformSetting, which doesn't exist until Milestone 10
+// — the same pattern as commission's DEFAULT_COMMISSION_PERCENTAGE.
+model LoyaltyAccount {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pointsBalance  Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  transactions LoyaltyTransaction[]
+}
+
+model LoyaltyTransaction {
+  id        String                 @id @default(cuid())
+  accountId String
+  account   LoyaltyAccount         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  type      LoyaltyTransactionType
+  points    Int
+  orderId   String?
+  note      String?
+  createdAt DateTime               @default(now())
+
+  @@index([accountId])
+}
+
+// ---------------------------------------------------------------------------
+// Marketing (coupons)
+// ---------------------------------------------------------------------------
+
+// A seller-scoped coupon; "flash sale"/"festival sale" is just a coupon
+// with a promotional name and a short date window — no separate Offer
+// entity needed. Validation (dates/usage-limit/min-order/one-per-buyer)
+// is a pure function (src/lib/coupon.ts's validateCoupon) so the whole
+// rule set is unit-testable without a database.
+model Coupon {
+  id             String     @id @default(cuid())
+  storeId        String
+  store          Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  code           String
+  type           CouponType
+  value          Float
+  minOrderAmount Float      @default(0)
+  startDate      DateTime
+  endDate        DateTime
+  usageLimit     Int?
+  isActive       Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  redemptions CouponRedemption[]
+
+  @@unique([storeId, code])
+  @@index([storeId])
+}
+
+model CouponRedemption {
+  id             String   @id @default(cuid())
+  couponId       String
+  coupon         Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  buyerId        String
+  orderId        String   @unique
+  discountAmount Float
+  createdAt      DateTime @default(now())
+
+  @@unique([couponId, buyerId])
+  @@index([couponId])
+}
+
+// ---------------------------------------------------------------------------
+// Orders
+// ---------------------------------------------------------------------------
+
+model Order {
+  id              String        @id @default(cuid())
+  orderNumber     String        @unique
+  buyerId         String
+  buyer           User          @relation("BuyerOrders", fields: [buyerId], references: [id])
+  storeId         String
+  store           Store         @relation(fields: [storeId], references: [id])
+  addressId       String?
+  address         Location?     @relation(fields: [addressId], references: [id])
+  customerName    String
+  customerPhone   String
+  addressSnapshot String
+  status          OrderStatus   @default(PENDING)
+  paymentMethod   PaymentMethod @default(COD)
+  paymentStatus   PaymentStatus @default(PENDING)
+  subtotal        Float
+  deliveryFee     Float         @default(0)
+  discountAmount  Float         @default(0)
+  loyaltyPointsRedeemed Int     @default(0)
+  couponCode      String?
+  total           Float
+  notes           String?
+  deliveryPartnerId   String?
+  deliveryPartner     User?     @relation("DeliveryPartnerOrders", fields: [deliveryPartnerId], references: [id])
+  deliveryAssignedAt  DateTime?
+  pickedUpAt          DateTime?
+  // Commission snapshot — computed once at order creation and never
+  // recomputed later, same immutability principle as OrderItem's price.
+  platformFee         Float     @default(0)
+  sellerEarning       Float     @default(0)
+  cancelledById   String?
+  cancelReason    String?
+  cancelledAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  items           OrderItem[]
+  payment         Payment?
+  review          Review?
+
+  @@index([buyerId])
+  @@index([storeId])
+  @@index([status])
+  @@index([deliveryPartnerId])
+}
+
+model OrderItem {
+  id            String          @id @default(cuid())
+  orderId       String
+  order         Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product         @relation(fields: [productId], references: [id])
+  variantId     String?
+  variant       ProductVariant? @relation(fields: [variantId], references: [id])
+  productName   String
+  variantLabel  String?
+  imageUrl      String?
+  price         Float
+  quantity      Int
+  lineTotal     Float
+
+  @@index([orderId])
+}
+
+// Source-of-truth payment record; Order.paymentMethod/paymentStatus stay as a
+// denormalized cache (kept in sync by the same write path) for cheap list
+// queries. No real gateway is wired up yet — this is the abstraction seam.
+model Payment {
+  id            String        @id @default(cuid())
+  orderId       String        @unique
+  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  method        PaymentMethod
+  status        PaymentStatus @default(PENDING)
+  amount        Float
+  currency      String        @default("INR")
+  // null for COD; "mock" for the sandbox simulator; "razorpay"/"stripe" etc.
+  // once a real gateway is wired up — see src/lib/payment-gateway.ts.
+  gateway       String?
+  gatewayRef    String?
+  failureReason String?
+  paidAt        DateTime?
+  refundedAt    DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  refunds Refund[]
+
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Refunds
+// ---------------------------------------------------------------------------
+
+enum RefundStatus {
+  REQUESTED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// Admin-initiated, full or partial. A COMPLETED refund whose total (with any
+// prior COMPLETED refunds on the same payment) equals the payment's full
+// amount flips Payment.status to REFUNDED, otherwise PARTIALLY_REFUNDED —
+// same "server computes, never trusts a single field" principle as the
+// order pricing snapshot.
+model Refund {
+  id            String       @id @default(cuid())
+  paymentId     String
+  payment       Payment      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  amount        Float
+  reason        String?
+  status        RefundStatus @default(REQUESTED)
+  requestedById String
+  requestedBy   User         @relation(fields: [requestedById], references: [id])
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([paymentId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Seller payouts
+// ---------------------------------------------------------------------------
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  ON_HOLD
+}
+
+// A tracking ledger only — no real money moves through this table. Admin
+// records a payout for a store covering a period, then marks it PAID once
+// the transfer has actually been made through a real banking/UPI channel
+// outside the app (see decision in Phase 3 plan: "never automatically
+// transfer real money unless the payout integration is explicitly wired").
+model Payout {
+  id            String       @id @default(cuid())
+  storeId       String
+  store         Store        @relation(fields: [storeId], references: [id])
+  amount        Float
+  status        PayoutStatus @default(PENDING)
+  periodStart   DateTime
+  periodEnd     DateTime
+  notes         String?
+  processedById String?
+  processedBy   User?        @relation(fields: [processedById], references: [id])
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([storeId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Inventory
+// ---------------------------------------------------------------------------
+
+model InventoryLog {
+  id         String                 @id @default(cuid())
+  productId  String
+  product    Product                @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId  String?
+  variant    ProductVariant?        @relation(fields: [variantId], references: [id])
+  change     Int
+  reason     InventoryChangeReason
+  orderId    String?
+  actorId    String?
+  actor      User?                  @relation("InventoryActor", fields: [actorId], references: [id])
+  note       String?
+  createdAt  DateTime               @default(now())
+
+  @@index([productId])
+}
+
+// ---------------------------------------------------------------------------
+// Reviews
+// ---------------------------------------------------------------------------
+
+// Tied to a specific order to enforce "one review per eligible purchase" via
+// the unique constraint on orderId — never a bare buyer/store pair.
+model Review {
+  id        String   @id @default(cuid())
+  orderId   String   @unique
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  buyerId   String
+  buyer     User     @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  rating    Int
+  comment   String?
+  imageUrl  String?
+  createdAt DateTime @default(now())
+
+  @@index([storeId])
+  @@index([productId])
+}
+
+// ---------------------------------------------------------------------------
+// Product requests ("I'm looking for this exact jacket")
+// ---------------------------------------------------------------------------
+
+model ProductRequest {
+  id                 String                @id @default(cuid())
+  buyerId            String
+  buyer              User                  @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  storeId            String?
+  store              Store?                @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  productName        String
+  description        String?
+  photoUrl           String?
+  budget             Float?
+  note               String?
+  status             ProductRequestStatus  @default(PENDING)
+  sellerAvailable    Boolean?
+  sellerPrice        Float?
+  sellerMessage      String?
+  fulfilledProductId String?
+  fulfilledProduct   Product?              @relation(fields: [fulfilledProductId], references: [id], onDelete: SetNull)
+  respondedAt        DateTime?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  @@index([buyerId])
+  @@index([storeId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id                      String           @id @default(cuid())
+  userId                  String
+  user                    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type                    NotificationType
+  title                   String
+  body                    String
+  isRead                  Boolean          @default(false)
+  relatedOrderId          String?
+  relatedProductRequestId String?
+  createdAt               DateTime         @default(now())
+
+  @@index([userId, isRead])
+}
+
+// Structured, swappable notification content per event key — title/body
+// support {{placeholder}} tokens (rendered by renderTemplate() in
+// src/lib/notify.ts). A WHATSAPP row for a key means createNotification()
+// also calls the sendWhatsApp() seam for that event; no real WhatsApp
+// Business API credentials exist yet, so that stub just logs in dev,
+// matching the OTP dev-mode pattern.
+model NotificationTemplate {
+  id        String               @id @default(cuid())
+  key       String               @unique
+  channel   NotificationChannel
+  title     String
+  body      String
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Support
+// ---------------------------------------------------------------------------
+
+// Any authenticated user (buyer, seller, delivery partner) can raise a
+// ticket; admin is the only role that resolves them. The opening message
+// is stored as the ticket's first SupportTicketReply, so the thread is a
+// single uniform list rather than a special-cased first item.
+model SupportTicket {
+  id             String                 @id @default(cuid())
+  userId         String
+  user           User                   @relation(fields: [userId], references: [id])
+  subject        String
+  category       SupportTicketCategory  @default(OTHER)
+  status         SupportTicketStatus    @default(OPEN)
+  relatedOrderId String?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  replies SupportTicketReply[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model SupportTicketReply {
+  id          String        @id @default(cuid())
+  ticketId    String
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User          @relation(fields: [authorId], references: [id])
+  message     String
+  isFromAdmin Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+
+  @@index([ticketId])
+}
+
+// ---------------------------------------------------------------------------
+// Audit log
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+}
+
+// ---------------------------------------------------------------------------
+// Analytics
+// ---------------------------------------------------------------------------
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  type      String
+  userId    String?
+  storeId   String?
+  productId String?
+  orderId   String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([type, createdAt])
+  @@index([storeId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Platform settings & feature flags
+// ---------------------------------------------------------------------------
+
+// Key-value tunables (commission default, loyalty rate, trial length, etc.)
+// read through src/lib/settings.ts's getSetting()/getSettingNumber() —
+// a missing row falls back to the hardcoded default in code, so this
+// table only ever needs a row once an admin actually changes something.
+model PlatformSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  group     String   @default("general")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Booleans checked on hot request paths (AI endpoints, online payments,
+// coupons, reviews, delivery-partner assignment) — a tighter, cache-friendlier
+// shape than PlatformSetting's free-form value. A missing row means
+// enabled, so every flag defaults to today's behavior until an admin
+// flips it off.
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  isEnabled   Boolean  @default(true)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
