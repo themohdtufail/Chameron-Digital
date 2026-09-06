@@ -99,14 +99,14 @@ Seller-scoped coupons (`Coupon`); a "flash sale"/"festival sale" is just a coupo
 
 | Method & path | Auth | Notes |
 |---|---|---|
-| `POST /api/upload` | any | Multipart form (`file`, `folder` ∈ `stores`/`products`/`avatars`/`reviews`/`requests`/`documents`). MIME allowlist + 10MB cap + magic-byte signature check. Rate-limited. |
+| `POST /api/upload` | any (`folder=documents` requires SELLER with a store) | Multipart form (`file`, `folder` ∈ `stores`/`products`/`avatars`/`reviews`/`requests`/`documents`). MIME allowlist + 10MB cap + magic-byte signature check. Rate-limited. Returns `{ url, type }` — for public folders `url` is a directly-usable URL (S3 or local); for `documents` it's a private storage reference, not a renderable URL (see `docs/STORAGE.md`). |
 
 ## Seller
 
 | Method & path | Auth | Notes |
 |---|---|---|
 | `GET/POST /api/seller/store` `PATCH /api/seller/store` | SELLER | Registration + settings, including the per-day `hours` array, `vacationMode`/`vacationUntil`, `minOrderAmount`. |
-| `GET/POST /api/seller/documents` `DELETE /api/seller/documents/[id]` | SELLER | Verification document uploads (`type` ∈ `SHOP_PROOF`/`GST`/`FSSAI`/`BUSINESS_CERTIFICATE`, `url` from `/api/upload` with `folder=documents`). Reviewed by admin, who sets `Store.isVerified` — kept separate from the `status` approval gate. |
+| `GET/POST /api/seller/documents` `DELETE /api/seller/documents/[id]` | SELLER | Verification document uploads (`type` ∈ `SHOP_PROOF`/`GST`/`FSSAI`/`BUSINESS_CERTIFICATE`, `key` from `/api/upload` with `folder=documents` — a private S3 object key, not a usable URL). `GET` resolves each document to a fresh short-lived signed URL server-side (never returns the raw key). Reviewed by admin (also signed-URL-resolved, see `/api/admin/stores/[id]`), who sets `Store.isVerified` — kept separate from the `status` approval gate. See `docs/STORAGE.md` for the private-document access model. |
 | `GET/POST /api/seller/products` | SELLER | Own catalog; slugs are globally unique. |
 | `GET/PATCH/DELETE /api/seller/products/[id]` | SELLER (own store) | PATCH writes an `AuditLog` row on a price change; DELETE writes one too. |
 | `GET/POST /api/seller/product-categories` | SELLER | In-store nav categories. |

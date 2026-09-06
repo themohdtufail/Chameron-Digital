@@ -258,9 +258,9 @@ The app is a standard Next.js application and deploys cleanly to any Node host. 
 
 Set `OTP_DEV_MODE=false` and wire your SMS provider (Twilio, MSG91, etc.) into the `else` branch of `requestOtp()` in `src/lib/otp.ts` — the OTP generation, hashing, and verification logic is already provider-agnostic.
 
-### Enabling S3-compatible storage
+### Enabling S3 storage
 
-Implement `S3StorageDriver.upload()` in `src/lib/storage.ts` using `@aws-sdk/client-s3` (or your provider's SDK) and set `STORAGE_DRIVER=s3` plus the `S3_*` env vars. No other code changes are required — every caller goes through `getStorage().upload()`.
+`STORAGE_DRIVER=s3` plus the `S3_*` env vars turns on a real, working S3 driver (AWS SDK v3) — required in production, since Vercel's filesystem is ephemeral. Private KYC/verification documents are never made public; they're served only through short-lived signed URLs to an authorized seller/admin. Full architecture, required AWS resources, IAM policy, bucket policy, and the local-uploads migration path: see [`docs/STORAGE.md`](docs/STORAGE.md).
 
 ## Future roadmap
 

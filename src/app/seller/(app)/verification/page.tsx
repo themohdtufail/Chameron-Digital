@@ -43,7 +43,7 @@ export default function SellerVerificationPage() {
       const res = await fetch("/api/seller/documents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, url }),
+        body: JSON.stringify({ type, key: url }),
       });
       if (!res.ok) {
         toast.error("Could not save document");

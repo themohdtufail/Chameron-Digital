@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 import {
   getStorage,
   MAX_UPLOAD_BYTES,
   ALLOWED_IMAGE_TYPES,
   ALLOWED_VIDEO_TYPES,
   matchesFileSignature,
+  isPrivateFolder,
   type UploadFolder,
 } from "@/lib/storage";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
@@ -34,7 +36,22 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     return jsonError("File content does not match its declared type", 400);
   }
 
-  const url = await getStorage().upload(buffer, file.name, folderInput as UploadFolder);
+  const folder = folderInput as UploadFolder;
+
+  // The "documents" folder (KYC/verification uploads) is seller-only and
+  // key-scoped by store, so the owning store is resolved server-side here —
+  // never trusted from the client — and used to build the private object
+  // key (private/documents/{storeId}/...) rather than an ownerId a caller
+  // could otherwise spoof.
+  let ownerId: string | undefined;
+  if (isPrivateFolder(folder)) {
+    if (user.role !== "SELLER") return jsonError("Only sellers can upload verification documents", 403);
+    const store = await prisma.store.findUnique({ where: { ownerId: user.id }, select: { id: true } });
+    if (!store) return jsonError("Store not found", 404);
+    ownerId = store.id;
+  }
+
+  const url = await getStorage().upload(buffer, file.type, folder, ownerId);
 
   return NextResponse.json({ url, type: isVideo ? "video" : "image" });
 });

@@ -461,7 +461,14 @@ model StoreDocument {
   storeId    String
   store      Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
   type       StoreDocumentType
-  url        String
+  // A storage reference, not a directly-usable URL: the local driver still
+  // writes a servable path here, but the S3 driver writes a private object
+  // key that must be resolved through getSignedUrl() before it can be
+  // fetched — the "url" name would silently mislead callers into rendering
+  // an unresolved private key, so this was renamed from the original `url`
+  // column (a straight rename, no data changed/dropped — see the
+  // accompanying migration).
+  key        String
   uploadedAt DateTime          @default(now())
 
   @@index([storeId])
