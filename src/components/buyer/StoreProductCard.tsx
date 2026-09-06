@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ImageOff } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { AddToCartButton } from "@/components/buyer/AddToCartButton";
+import { WishlistButton } from "@/components/buyer/WishlistButton";
 import { formatCurrency } from "@/lib/utils";
 import type { ProductSummary } from "@/types";
 
@@ -36,6 +37,14 @@ export function StoreProductCard({ product }: { product: ProductSummary }) {
           <span className="absolute left-2 top-2 rounded-md bg-accent-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
             {discountPct}% OFF
           </span>
+        )}
+        {product.isWishlisted !== undefined && (
+          <WishlistButton
+            productId={product.id}
+            initialWishlisted={product.isWishlisted}
+            size="sm"
+            className="absolute right-2 top-2"
+          />
         )}
         {product.status !== "AVAILABLE" && (
           <div className="absolute inset-0 flex items-center justify-center bg-white/70">

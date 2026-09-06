@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, SearchX } from "lucide-react";
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 import { SearchBar } from "@/components/buyer/SearchBar";
 import { StoreCard } from "@/components/buyer/StoreCard";
 import { ProductCard } from "@/components/buyer/ProductCard";
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function SearchPage({ searchParams }: { searchParams: { q?: string } }) {
   const q = searchParams.q?.trim() || "";
+  const user = await getCurrentUser();
 
   const [stores, products] = q
     ? await Promise.all([
@@ -27,6 +29,17 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
         }),
       ])
     : [[], []];
+
+  const wishlistIds = user
+    ? new Set(
+        (
+          await prisma.wishlist.findMany({
+            where: { buyerId: user.id, productId: { in: products.map((p) => p.id) } },
+            select: { productId: true },
+          })
+        ).map((w) => w.productId)
+      )
+    : new Set<string>();
 
   const storeSummaries: StoreSummary[] = stores.map((store) => ({
     id: store.id,
@@ -91,6 +104,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
                     discountPrice: p.discountPrice,
                     status: p.status,
                     imageUrl: p.images[0]?.url ?? null,
+                    isWishlisted: wishlistIds.has(p.id),
                   }}
                 />
               ))}

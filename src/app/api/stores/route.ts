@@ -5,6 +5,8 @@ import { haversineDistanceKm } from "@/lib/utils";
 import { isStoreOpen } from "@/lib/store-helpers";
 import type { StoreSummary } from "@/types";
 
+const PAGE_SIZE = 12;
+
 export const GET = withApiErrors(async (req: NextRequest) => {
   const { searchParams } = req.nextUrl;
   const city = searchParams.get("city") || undefined;
@@ -12,7 +14,11 @@ export const GET = withApiErrors(async (req: NextRequest) => {
   const q = searchParams.get("q") || undefined;
   const lat = searchParams.get("lat") ? Number(searchParams.get("lat")) : undefined;
   const lng = searchParams.get("lng") ? Number(searchParams.get("lng")) : undefined;
-  const sort = searchParams.get("sort") || "nearby";
+  const sort = searchParams.get("sort") || "recommended";
+  const openNow = searchParams.get("openNow") === "true";
+  const minRating = searchParams.get("minRating") ? Number(searchParams.get("minRating")) : undefined;
+  const maxDistanceKm = searchParams.get("maxDistanceKm") ? Number(searchParams.get("maxDistanceKm")) : undefined;
+  const page = Math.max(1, Number(searchParams.get("page") || "1"));
 
   const stores = await prisma.store.findMany({
     where: {
@@ -22,7 +28,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
       name: q ? { contains: q, mode: "insensitive" } : undefined,
     },
     include: { category: true, hours: true },
-    take: 60,
+    take: 300,
   });
 
   let summaries: StoreSummary[] = stores.map((store) => {
@@ -48,11 +54,22 @@ export const GET = withApiErrors(async (req: NextRequest) => {
     };
   });
 
-  if (sort === "popular") {
-    summaries = summaries.sort((a, b) => b.ratingCount - a.ratingCount || b.ratingAvg - a.ratingAvg);
-  } else if (lat !== undefined && lng !== undefined) {
-    summaries = summaries.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+  if (openNow) summaries = summaries.filter((s) => s.isOpenNow);
+  if (minRating) summaries = summaries.filter((s) => s.ratingAvg >= minRating);
+  if (maxDistanceKm !== undefined) summaries = summaries.filter((s) => s.distanceKm === null || s.distanceKm <= maxDistanceKm);
+
+  if (sort === "top-rated") {
+    summaries.sort((a, b) => b.ratingAvg - a.ratingAvg || b.ratingCount - a.ratingCount);
+  } else if (sort === "nearest") {
+    summaries.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+  } else {
+    // recommended: a blend of rating and how many reviews back it up
+    summaries.sort((a, b) => b.ratingAvg * Math.log(b.ratingCount + 2) - a.ratingAvg * Math.log(a.ratingCount + 2));
   }
 
-  return NextResponse.json({ stores: summaries });
+  const total = summaries.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const paged = summaries.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  return NextResponse.json({ stores: paged, total, page, totalPages, pageSize: PAGE_SIZE });
 });

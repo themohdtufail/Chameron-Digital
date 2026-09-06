@@ -25,4 +25,5 @@ export interface ProductSummary {
   imageUrl: string | null;
   storeSlug?: string;
   storeName?: string;
+  isWishlisted?: boolean;
 }

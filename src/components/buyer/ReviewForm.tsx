@@ -5,11 +5,13 @@ import toast from "react-hot-toast";
 import { Star } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Input";
+import { FileUpload } from "@/components/seller/FileUpload";
 import { cn } from "@/lib/utils";
 
 export function ReviewForm({ orderId }: { orderId: string }) {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -37,6 +39,9 @@ export function ReviewForm({ orderId }: { orderId: string }) {
         value={comment}
         onChange={(e) => setComment(e.target.value)}
       />
+      <div className="mt-3 w-28">
+        <FileUpload value={imageUrl} onChange={setImageUrl} folder="reviews" label="Add a photo (optional)" aspect="aspect-square" />
+      </div>
       <Button
         className="mt-3"
         fullWidth
@@ -47,7 +52,7 @@ export function ReviewForm({ orderId }: { orderId: string }) {
           const res = await fetch("/api/reviews", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ orderId, rating, comment: comment || undefined }),
+            body: JSON.stringify({ orderId, rating, comment: comment || undefined, imageUrl: imageUrl || undefined }),
           });
           setLoading(false);
           if (!res.ok) {

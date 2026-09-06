@@ -85,12 +85,16 @@ export const productSchema = z.object({
 
 export const locationSchema = z.object({
   label: z.string().trim().min(1).max(40).default("Current"),
+  fullName: z.string().trim().max(80).optional(),
+  phone: phoneSchema.optional(),
   addressLine: z.string().trim().max(200).optional(),
   landmark: z.string().trim().max(120).optional(),
   area: z.string().trim().max(80).optional(),
   city: z.string().trim().min(1).max(80),
   state: z.string().trim().max(80).optional(),
+  pincode: z.string().trim().max(12).optional(),
   country: z.string().trim().max(80).default("India"),
+  deliveryInstructions: z.string().trim().max(300).optional(),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
   isCurrent: z.boolean().optional(),

@@ -3,6 +3,17 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
+import { createNotification } from "@/lib/notify";
+
+const STATUS_LABEL: Record<string, string> = {
+  CONFIRMED: "confirmed",
+  PREPARING: "being prepared",
+  READY: "ready for pickup/delivery",
+  OUT_FOR_DELIVERY: "out for delivery",
+  DELIVERED: "delivered",
+  REJECTED: "rejected",
+  CANCELLED: "cancelled",
+};
 
 export const GET = withApiErrors(async (_req: NextRequest, { params }: { params: { id: string } }) => {
   const user = await requireUser();
@@ -50,7 +61,7 @@ export const PATCH = withApiErrors(async (req: NextRequest, { params }: { params
 
   const order = await prisma.order.findUnique({
     where: { id: params.id },
-    include: { store: { select: { ownerId: true } } },
+    include: { store: { select: { ownerId: true, name: true } } },
   });
   if (!order) return jsonError("Order not found", 404);
 
@@ -69,5 +80,24 @@ export const PATCH = withApiErrors(async (req: NextRequest, { params }: { params
   }
 
   const updated = await prisma.order.update({ where: { id: order.id }, data: { status } });
+
+  if (status === "CANCELLED") {
+    await createNotification({
+      userId: order.store.ownerId,
+      type: "ORDER_CANCELLED",
+      title: "Order cancelled",
+      body: `Order ${order.orderNumber} was cancelled by the buyer.`,
+      relatedOrderId: order.id,
+    });
+  } else {
+    await createNotification({
+      userId: order.buyerId,
+      type: status === "CONFIRMED" ? "ORDER_CONFIRMED" : "ORDER_STATUS_CHANGED",
+      title: `Order ${STATUS_LABEL[status] ?? status.toLowerCase()}`,
+      body: `Your order ${order.orderNumber} from ${order.store.name} is now ${STATUS_LABEL[status] ?? status.toLowerCase()}.`,
+      relatedOrderId: order.id,
+    });
+  }
+
   return NextResponse.json({ order: updated });
 });

@@ -1,13 +1,21 @@
 "use client";
 
 import toast from "react-hot-toast";
-import { Phone, MessageCircle, Share2 } from "lucide-react";
+import { Phone, MessageCircle, Share2, Navigation } from "lucide-react";
 
-export function StoreActions({ phone, storeName }: { phone: string; storeName: string }) {
+export function StoreActions({
+  phone,
+  storeName,
+  directionsUrl,
+}: {
+  phone: string;
+  storeName: string;
+  directionsUrl?: string;
+}) {
   const digits = phone.replace(/[^0-9]/g, "");
 
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className={`grid gap-2 ${directionsUrl ? "grid-cols-4" : "grid-cols-3"}`}>
       <a
         href={`tel:${phone}`}
         className="flex flex-col items-center gap-1 rounded-xl border border-zinc-100 py-2.5 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50 active:scale-95"
@@ -22,6 +30,16 @@ export function StoreActions({ phone, storeName }: { phone: string; storeName: s
       >
         <MessageCircle className="h-4 w-4 text-success-500" /> Chat
       </a>
+      {directionsUrl && (
+        <a
+          href={directionsUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="flex flex-col items-center gap-1 rounded-xl border border-zinc-100 py-2.5 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50 active:scale-95"
+        >
+          <Navigation className="h-4 w-4 text-brand-600" /> Directions
+        </a>
+      )}
       <button
         onClick={async () => {
           const url = typeof window !== "undefined" ? window.location.href : "";

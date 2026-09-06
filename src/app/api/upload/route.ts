@@ -10,7 +10,7 @@ import {
 } from "@/lib/storage";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
 
-const ALLOWED_FOLDERS: UploadFolder[] = ["stores", "products", "avatars"];
+const ALLOWED_FOLDERS: UploadFolder[] = ["stores", "products", "avatars", "reviews", "requests"];
 
 export const POST = withApiErrors(async (req: NextRequest) => {
   await requireUser();

@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { nanoid } from "nanoid";
 
-export type UploadFolder = "stores" | "products" | "avatars";
+export type UploadFolder = "stores" | "products" | "avatars" | "reviews" | "requests";
 
 export interface StorageDriver {
   upload(file: Buffer, originalName: string, folder: UploadFolder): Promise<string>;

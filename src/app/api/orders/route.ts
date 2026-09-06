@@ -3,8 +3,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
-import { generateOrderNumber } from "@/lib/utils";
+import { generateOrderNumber, formatCurrency } from "@/lib/utils";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { createNotification } from "@/lib/notify";
 
 const checkoutSchema = z.object({
   addressId: z.string(),
@@ -66,7 +67,14 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   const deliveryFee = store.deliveryFee;
   const total = subtotal + deliveryFee;
 
-  const addressSnapshot = [address.addressLine, address.landmark, address.area, address.city, address.state]
+  const addressSnapshot = [
+    address.addressLine,
+    address.landmark,
+    address.area,
+    address.city,
+    address.state,
+    address.pincode,
+  ]
     .filter(Boolean)
     .join(", ");
 
@@ -120,6 +128,14 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
 
     return created;
+  });
+
+  await createNotification({
+    userId: store.ownerId,
+    type: "NEW_ORDER",
+    title: "New order received",
+    body: `${body.customerName} placed order ${order.orderNumber} for ${formatCurrency(order.total)}.`,
+    relatedOrderId: order.id,
   });
 
   return NextResponse.json({ order });

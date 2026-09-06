@@ -12,11 +12,28 @@ import { cn, formatCurrency } from "@/lib/utils";
 interface Address {
   id: string;
   label: string;
+  fullName: string | null;
+  phone: string | null;
   addressLine: string | null;
+  landmark: string | null;
   area: string | null;
   city: string;
   state: string | null;
+  pincode: string | null;
+  deliveryInstructions: string | null;
 }
+
+const emptyAddressForm = {
+  fullName: "",
+  phone: "",
+  addressLine: "",
+  landmark: "",
+  area: "",
+  city: "",
+  state: "",
+  pincode: "",
+  deliveryInstructions: "",
+};
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -25,12 +42,10 @@ export default function CheckoutPage() {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [cartTotal, setCartTotal] = useState<{ subtotal: number; deliveryFee: number; total: number } | null>(null);
 
-  const [newAddress, setNewAddress] = useState({ addressLine: "", area: "", city: "", state: "" });
+  const [newAddress, setNewAddress] = useState(emptyAddressForm);
 
   useEffect(() => {
     (async () => {
@@ -43,19 +58,24 @@ export default function CheckoutPage() {
       const loc = await locRes.json();
       const cart = await cartRes.json();
 
-      setName(me.user?.name ?? "");
-      setPhone(me.user?.phone ?? "");
       setAddresses(loc.locations ?? []);
       setSelectedAddressId(loc.locations?.[0]?.id ?? null);
       setCartTotal({ subtotal: cart.subtotal, deliveryFee: cart.deliveryFee, total: cart.total });
-      if (!loc.locations?.length) setShowAddForm(true);
+      if (!loc.locations?.length) {
+        setNewAddress((s) => ({ ...s, fullName: me.user?.name ?? "", phone: me.user?.phone ?? "" }));
+        setShowAddForm(true);
+      }
       setLoading(false);
     })();
   }, []);
 
   async function saveNewAddress() {
-    if (!newAddress.city.trim()) {
-      toast.error("City is required");
+    if (!newAddress.fullName.trim() || newAddress.phone.trim().length < 10) {
+      toast.error("Enter the recipient's name and a valid phone number");
+      return null;
+    }
+    if (!newAddress.addressLine.trim() || !newAddress.city.trim()) {
+      toast.error("Address line and city are required");
       return null;
     }
     const res = await fetch("/api/location", {
@@ -64,7 +84,8 @@ export default function CheckoutPage() {
       body: JSON.stringify({ ...newAddress, label: "Delivery" }),
     });
     if (!res.ok) {
-      toast.error("Could not save address");
+      const data = await res.json();
+      toast.error(data.error || "Could not save address");
       return null;
     }
     const data = await res.json();
@@ -75,15 +96,13 @@ export default function CheckoutPage() {
   }
 
   async function placeOrder() {
-    if (!name.trim() || phone.trim().length < 10) {
-      toast.error("Enter your name and a valid phone number");
-      return;
-    }
     let addressId = selectedAddressId;
     if (showAddForm || !addressId) {
       addressId = await saveNewAddress();
       if (!addressId) return;
     }
+
+    const address = addresses.find((a) => a.id === addressId);
 
     setPlacing(true);
     try {
@@ -92,8 +111,8 @@ export default function CheckoutPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           addressId,
-          customerName: name,
-          customerPhone: phone,
+          customerName: address?.fullName || newAddress.fullName,
+          customerPhone: address?.phone || newAddress.phone,
           notes: notes || undefined,
           paymentMethod: "COD",
         }),
@@ -125,14 +144,6 @@ export default function CheckoutPage() {
       <div className="page-container lg:grid lg:grid-cols-3 lg:items-start lg:gap-8 lg:px-8 lg:py-6">
       <div className="space-y-6 px-4 py-5 lg:col-span-2 lg:px-0 lg:py-0">
         <section>
-          <h2 className="mb-3 text-sm font-bold text-zinc-900">Customer details</h2>
-          <div className="space-y-3">
-            <Input label="Full name" value={name} onChange={(e) => setName(e.target.value)} />
-            <Input label="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} />
-          </div>
-        </section>
-
-        <section>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-bold text-zinc-900">Delivery address</h2>
             {!showAddForm && (
@@ -158,10 +169,16 @@ export default function CheckoutPage() {
                 >
                   <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
                   <div className="flex-1 text-sm">
-                    <p className="font-semibold text-zinc-900">{addr.label}</p>
-                    <p className="text-zinc-500">
-                      {[addr.addressLine, addr.area, addr.city, addr.state].filter(Boolean).join(", ")}
+                    <p className="font-semibold text-zinc-900">
+                      {addr.label}
+                      {addr.fullName && <span className="font-normal text-zinc-500"> · {addr.fullName}</span>}
                     </p>
+                    <p className="text-zinc-500">
+                      {[addr.addressLine, addr.landmark, addr.area, addr.city, addr.state, addr.pincode]
+                        .filter(Boolean)
+                        .join(", ")}
+                    </p>
+                    {addr.phone && <p className="text-zinc-400">{addr.phone}</p>}
                   </div>
                   {selectedAddressId === addr.id && <Check className="h-4 w-4 shrink-0 text-brand-600" />}
                 </button>
@@ -171,11 +188,28 @@ export default function CheckoutPage() {
 
           {showAddForm && (
             <div className="space-y-3 rounded-xl border border-zinc-200 p-3">
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="Recipient name"
+                  value={newAddress.fullName}
+                  onChange={(e) => setNewAddress((s) => ({ ...s, fullName: e.target.value }))}
+                />
+                <Input
+                  label="Phone number"
+                  value={newAddress.phone}
+                  onChange={(e) => setNewAddress((s) => ({ ...s, phone: e.target.value }))}
+                />
+              </div>
               <Input
-                label="Address line"
-                placeholder="House no, street, landmark"
+                label="House / street / society"
+                placeholder="House no, street, society"
                 value={newAddress.addressLine}
                 onChange={(e) => setNewAddress((s) => ({ ...s, addressLine: e.target.value }))}
+              />
+              <Input
+                label="Landmark (optional)"
+                value={newAddress.landmark}
+                onChange={(e) => setNewAddress((s) => ({ ...s, landmark: e.target.value }))}
               />
               <div className="grid grid-cols-2 gap-3">
                 <Input
@@ -189,10 +223,24 @@ export default function CheckoutPage() {
                   onChange={(e) => setNewAddress((s) => ({ ...s, city: e.target.value }))}
                 />
               </div>
-              <Input
-                label="State"
-                value={newAddress.state}
-                onChange={(e) => setNewAddress((s) => ({ ...s, state: e.target.value }))}
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="State"
+                  value={newAddress.state}
+                  onChange={(e) => setNewAddress((s) => ({ ...s, state: e.target.value }))}
+                />
+                <Input
+                  label="Pincode"
+                  value={newAddress.pincode}
+                  onChange={(e) => setNewAddress((s) => ({ ...s, pincode: e.target.value }))}
+                />
+              </div>
+              <Textarea
+                label="Delivery instructions (optional)"
+                rows={2}
+                placeholder="Gate code, landmark, preferred time..."
+                value={newAddress.deliveryInstructions}
+                onChange={(e) => setNewAddress((s) => ({ ...s, deliveryInstructions: e.target.value }))}
               />
               {addresses.length > 0 && (
                 <button

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { TopBar } from "@/components/buyer/TopBar";
 import { StoreCard } from "@/components/buyer/StoreCard";
+import { ProductCard } from "@/components/buyer/ProductCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { haversineDistanceKm } from "@/lib/utils";
 import { isStoreOpen } from "@/lib/store-helpers";
@@ -65,13 +66,32 @@ export default async function BuyerHomePage() {
   const nearby = [...summaries].sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
   const popular = [...summaries].sort((a, b) => b.ratingCount - a.ratingCount || b.ratingAvg - a.ratingAvg);
 
+  const recentViews = await prisma.analyticsEvent.findMany({
+    where: { userId: user!.id, type: "product_view", productId: { not: null } },
+    orderBy: { createdAt: "desc" },
+    distinct: ["productId"],
+    take: 10,
+    select: { productId: true },
+  });
+  const recentProductIds = recentViews.map((v) => v.productId!).filter(Boolean);
+  const recentProducts = recentProductIds.length
+    ? await prisma.product.findMany({
+        where: { id: { in: recentProductIds }, isHidden: false, store: { status: "APPROVED" } },
+        include: { images: { orderBy: { position: "asc" }, take: 1 } },
+      })
+    : [];
+  // Preserve most-recently-viewed-first order (findMany doesn't respect `in` array order).
+  const recentlyViewed = recentProductIds
+    .map((id) => recentProducts.find((p) => p.id === id))
+    .filter((p): p is (typeof recentProducts)[number] => Boolean(p));
+
   return (
     <div className="animate-fade-in">
       <TopBar locationLabel={location ? `${location.area ? `${location.area}, ` : ""}${location.city}` : "Set your location"} />
 
       <div className="page-container space-y-7 px-4 py-5 lg:space-y-10 lg:py-8">
         <section>
-          <SectionHeader title="Nearby Stores" href="/buyer/categories" />
+          <SectionHeader title="Nearby Stores" href="/buyer/stores?sort=nearest" />
           {nearby.length === 0 ? (
             <EmptyState
               icon={Compass}
@@ -91,11 +111,35 @@ export default async function BuyerHomePage() {
 
         {popular.length > 0 && (
           <section>
-            <SectionHeader title="Popular Stores" href="/buyer/categories?sort=popular" />
+            <SectionHeader title="Popular Stores" href="/buyer/stores?sort=top-rated" />
             <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-1 lg:mx-0 lg:grid lg:grid-cols-4 lg:gap-5 lg:overflow-visible lg:px-0 xl:grid-cols-5">
               {popular.map((store) => (
                 <div key={store.id} className="w-[220px] shrink-0 lg:w-auto lg:shrink">
                   <StoreCard store={store} />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {recentlyViewed.length > 0 && (
+          <section>
+            <h2 className="mb-3 text-base font-bold text-zinc-900">Recently Viewed</h2>
+            <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-1 lg:mx-0 lg:grid lg:grid-cols-5 lg:gap-5 lg:overflow-visible lg:px-0 xl:grid-cols-6">
+              {recentlyViewed.map((p) => (
+                <div key={p.id} className="w-[150px] shrink-0 lg:w-auto lg:shrink">
+                  <ProductCard
+                    product={{
+                      id: p.id,
+                      slug: p.slug,
+                      name: p.name,
+                      description: p.description,
+                      price: p.price,
+                      discountPrice: p.discountPrice,
+                      status: p.status,
+                      imageUrl: p.images[0]?.url ?? null,
+                    }}
+                  />
                 </div>
               ))}
             </div>

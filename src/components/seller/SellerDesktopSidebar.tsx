@@ -3,15 +3,17 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Package, ClipboardList, Users, Settings, Store as StoreIcon, ExternalLink } from "lucide-react";
+import { LayoutDashboard, Package, ClipboardList, Users, Settings, Store as StoreIcon, ExternalLink, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/Logo";
+import { NotificationBell } from "@/components/NotificationBell";
 
 const items = [
   { href: "/seller/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/seller/products", label: "Products", icon: Package },
   { href: "/seller/orders", label: "Orders", icon: ClipboardList },
   { href: "/seller/customers", label: "Customers", icon: Users },
+  { href: "/seller/notifications", label: "Notifications", icon: Bell },
   { href: "/seller/settings", label: "Settings", icon: Settings },
 ];
 
@@ -38,7 +40,7 @@ export function SellerDesktopSidebar({
             </div>
           )}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-bold text-zinc-900">{store.name}</p>
           <Link
             href={`/buyer/store/${store.slug}`}
@@ -48,6 +50,10 @@ export function SellerDesktopSidebar({
             View store <ExternalLink className="h-3 w-3" />
           </Link>
         </div>
+        <NotificationBell
+          href="/seller/notifications"
+          className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-50"
+        />
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-4">

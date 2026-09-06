@@ -1,8 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, MapPin, Store as StoreIcon } from "lucide-react";
+import { ArrowLeft, MapPin, Store as StoreIcon, BadgeCheck } from "lucide-react";
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 import { RatingStars } from "@/components/ui/RatingStars";
 import { Badge } from "@/components/ui/Badge";
 import { StoreActions } from "@/components/buyer/StoreActions";
@@ -12,6 +13,7 @@ import { isStoreOpen } from "@/lib/store-helpers";
 export const dynamic = "force-dynamic";
 
 export default async function StorePage({ params }: { params: { slug: string } }) {
+  const user = await getCurrentUser();
   const store = await prisma.store.findUnique({
     where: { slug: params.slug },
     include: {
@@ -29,6 +31,22 @@ export default async function StorePage({ params }: { params: { slug: string } }
   if (!store || store.status !== "APPROVED") notFound();
 
   const openNow = isStoreOpen(store);
+  const wishlistIds = user
+    ? new Set(
+        (
+          await prisma.wishlist.findMany({
+            where: { buyerId: user.id, productId: { in: store.products.map((p) => p.id) } },
+            select: { productId: true },
+          })
+        ).map((w) => w.productId)
+      )
+    : new Set<string>();
+  const directionsUrl =
+    store.latitude && store.longitude
+      ? `https://www.google.com/maps/dir/?api=1&destination=${store.latitude},${store.longitude}`
+      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+          [store.addressLine, store.area, store.city, store.state].filter(Boolean).join(", ")
+        )}`;
 
   return (
     <div className="animate-fade-in pb-6">
@@ -65,7 +83,14 @@ export default async function StorePage({ params }: { params: { slug: string } }
             </Badge>
           </div>
 
-          <h1 className="mt-3 text-xl font-extrabold text-zinc-900 lg:text-3xl">{store.name}</h1>
+          <div className="mt-3 flex items-center gap-2">
+            <h1 className="text-xl font-extrabold text-zinc-900 lg:text-3xl">{store.name}</h1>
+            {store.isVerified && (
+              <span className="flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-600">
+                <BadgeCheck className="h-3.5 w-3.5" /> Verified
+              </span>
+            )}
+          </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500">
             <RatingStars rating={store.ratingAvg} count={store.ratingCount} size="md" />
             <span className="flex items-center gap-1">
@@ -80,7 +105,7 @@ export default async function StorePage({ params }: { params: { slug: string } }
           )}
 
           <div className="mt-4 lg:max-w-xs">
-            <StoreActions phone={store.phone} storeName={store.name} />
+            <StoreActions phone={store.phone} storeName={store.name} directionsUrl={directionsUrl} />
           </div>
         </div>
 
@@ -97,6 +122,7 @@ export default async function StorePage({ params }: { params: { slug: string } }
               status: p.status,
               imageUrl: p.images[0]?.url ?? null,
               categoryId: p.categoryId,
+              isWishlisted: wishlistIds.has(p.id),
             }))}
           />
         </div>

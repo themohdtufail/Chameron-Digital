@@ -8,6 +8,7 @@ const reviewSchema = z.object({
   orderId: z.string(),
   rating: z.number().int().min(1).max(5),
   comment: z.string().trim().max(500).optional(),
+  imageUrl: z.string().trim().max(500).optional(),
 });
 
 export const GET = withApiErrors(async (req: NextRequest) => {
@@ -34,7 +35,14 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   if (existing) return jsonError("You've already reviewed this order", 409);
 
   await prisma.review.create({
-    data: { buyerId: user.id, storeId: order.storeId, orderId: order.id, rating: body.rating, comment: body.comment },
+    data: {
+      buyerId: user.id,
+      storeId: order.storeId,
+      orderId: order.id,
+      rating: body.rating,
+      comment: body.comment,
+      imageUrl: body.imageUrl,
+    },
   });
 
   const agg = await prisma.review.aggregate({ where: { storeId: order.storeId }, _avg: { rating: true }, _count: true });

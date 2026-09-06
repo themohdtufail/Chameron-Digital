@@ -5,6 +5,7 @@ import Image from "next/image";
 import toast from "react-hot-toast";
 import { ImagePlus, Loader2, X, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { UploadFolder } from "@/lib/storage";
 
 export function FileUpload({
   value,
@@ -17,7 +18,7 @@ export function FileUpload({
 }: {
   value: string | null;
   onChange: (url: string | null) => void;
-  folder: "stores" | "products" | "avatars";
+  folder: UploadFolder;
   label: string;
   accept?: string;
   aspect?: string;
