@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
+import { hasFeature } from "@/lib/subscription";
 
 function startOfDay(d: Date) {
   const copy = new Date(d);
@@ -74,6 +75,115 @@ export const GET = withApiErrors(async (req: NextRequest) => {
   ]);
   const lowStockCount = trackedStock.filter((r) => r.stockQuantity > 0 && r.stockQuantity <= r.lowStockThreshold).length;
 
+  // Per-product and top-customer breakdowns are a PREMIUM-tier depth gate
+  // (decision #8) — basic totals and new/returning counts stay free.
+  const advancedAnalytics = await hasFeature(store.id, "advancedAnalytics");
+
+  // ---- Product analytics: views/cart-adds (AnalyticsEvent) + purchases
+  // (OrderItem, excluding cancelled/rejected orders) joined per product.
+  let productAnalytics: {
+    productId: string;
+    name: string;
+    views: number;
+    cartAdds: number;
+    purchases: number;
+    conversion: number;
+  }[] = [];
+
+  if (advancedAnalytics) {
+    const [viewEvents, cartAddEvents, orderItems, products] = await Promise.all([
+      prisma.analyticsEvent.groupBy({
+        by: ["productId"],
+        where: { storeId: store.id, type: "product_view", createdAt: { gte: from, lt: to }, productId: { not: null } },
+        _count: { _all: true },
+      }),
+      prisma.analyticsEvent.groupBy({
+        by: ["productId"],
+        where: { storeId: store.id, type: "add_to_cart", createdAt: { gte: from, lt: to }, productId: { not: null } },
+        _count: { _all: true },
+      }),
+      prisma.orderItem.findMany({
+        where: {
+          order: { storeId: store.id, createdAt: { gte: from, lt: to }, status: { notIn: ["CANCELLED", "REJECTED"] } },
+        },
+        select: { productId: true, quantity: true },
+      }),
+      prisma.product.findMany({ where: { storeId: store.id }, select: { id: true, name: true } }),
+    ]);
+
+    const viewsByProduct = new Map(viewEvents.map((e) => [e.productId, e._count._all]));
+    const cartAddsByProduct = new Map(cartAddEvents.map((e) => [e.productId, e._count._all]));
+    const purchasesByProduct = new Map<string, number>();
+    for (const item of orderItems) {
+      purchasesByProduct.set(item.productId, (purchasesByProduct.get(item.productId) ?? 0) + item.quantity);
+    }
+
+    productAnalytics = products
+      .map((p) => {
+        const views = viewsByProduct.get(p.id) ?? 0;
+        const cartAdds = cartAddsByProduct.get(p.id) ?? 0;
+        const purchases = purchasesByProduct.get(p.id) ?? 0;
+        return {
+          productId: p.id,
+          name: p.name,
+          views,
+          cartAdds,
+          purchases,
+          conversion: views > 0 ? Math.round((purchases / views) * 1000) / 10 : 0,
+        };
+      })
+      .filter((p) => p.views > 0 || p.cartAdds > 0 || p.purchases > 0)
+      .sort((a, b) => b.purchases - a.purchases || b.views - a.views)
+      .slice(0, 20);
+  }
+
+  // ---- Customer analytics: new (first-ever order falls in range) vs
+  // returning (has an order before the range too), plus top spenders.
+  const buyersInRange = await prisma.order.findMany({
+    where: { storeId: store.id, createdAt: { gte: from, lt: to } },
+    select: { buyerId: true },
+    distinct: ["buyerId"],
+  });
+  const buyerIds = buyersInRange.map((b) => b.buyerId);
+
+  let newCustomers = 0;
+  let returningCustomers = 0;
+  if (buyerIds.length > 0) {
+    const firstOrderPerBuyer = await prisma.order.groupBy({
+      by: ["buyerId"],
+      where: { storeId: store.id, buyerId: { in: buyerIds } },
+      _min: { createdAt: true },
+    });
+    for (const b of firstOrderPerBuyer) {
+      if (b._min.createdAt && b._min.createdAt >= from) newCustomers += 1;
+      else returningCustomers += 1;
+    }
+  }
+
+  let topCustomers: { name: string; orders: number; totalSpent: number }[] = [];
+  if (advancedAnalytics) {
+    const topCustomersRaw = await prisma.order.groupBy({
+      by: ["buyerId"],
+      where: { storeId: store.id, status: { notIn: ["CANCELLED", "REJECTED"] } },
+      _sum: { total: true },
+      _count: { _all: true },
+      orderBy: { _sum: { total: "desc" } },
+      take: 5,
+    });
+    const topBuyers = await prisma.user.findMany({
+      where: { id: { in: topCustomersRaw.map((c) => c.buyerId) } },
+      select: { id: true, name: true, phone: true },
+    });
+    topCustomers = topCustomersRaw.map((c) => {
+      const buyer = topBuyers.find((b) => b.id === c.buyerId);
+      return {
+        name: buyer?.name ?? buyer?.phone ?? "Buyer",
+        orders: c._count._all,
+        totalSpent: c._sum.total ?? 0,
+      };
+    });
+  }
+
   return NextResponse.json({
     range,
     from: from.toISOString(),
@@ -87,5 +197,8 @@ export const GET = withApiErrors(async (req: NextRequest) => {
     },
     lowStockCount,
     pendingRequests,
+    advancedAnalytics,
+    productAnalytics,
+    customerAnalytics: { newCustomers, returningCustomers, topCustomers },
   });
 });

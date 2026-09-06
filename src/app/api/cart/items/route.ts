@@ -70,6 +70,12 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     });
   }
 
+  await prisma.analyticsEvent
+    .create({
+      data: { type: "add_to_cart", userId: user.id, storeId: product.storeId, productId: product.id },
+    })
+    .catch(() => {});
+
   const details = await getCartDetails(user.id);
   return NextResponse.json(details);
 });

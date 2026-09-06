@@ -96,7 +96,7 @@ Every order gets a `Payment` row at creation (`src/lib/payment-gateway.ts` — a
 | `GET /api/seller/orders` | SELLER | `?group=new\|accepted\|completed\|cancelled`. |
 | `GET /api/seller/customers` | SELLER | Aggregated buyer stats for the store. |
 | `GET /api/seller/dashboard` | SELLER | Summary tiles + recent orders. |
-| `GET /api/seller/analytics` | SELLER | `?range=today\|7d\|30d`; daily orders/revenue series, totals, low-stock count, pending-request count. |
+| `GET /api/seller/analytics` | SELLER | `?range=today\|7d\|30d`; daily orders/revenue series, totals, low-stock count, pending-request count, new/returning customer counts. `productAnalytics` (views/cart-adds/purchases/conversion per product) and `customerAnalytics.topCustomers` are gated behind the `advancedAnalytics` plan feature (PREMIUM) — empty arrays with `advancedAnalytics: false` otherwise. |
 | `GET /api/seller/product-requests` | SELLER | Requests directed at the store. |
 | `PATCH /api/seller/product-requests/[id]` | SELLER (own store) | Respond available/unavailable + price/message, optionally attach an existing product; notifies the buyer. |
 
@@ -110,6 +110,15 @@ New sellers get a 14-day `TRIAL` GROWTH subscription on store registration. `has
 | `GET/PATCH /api/seller/subscription` | SELLER | Own subscription (+ live product count). PATCH `{ planKey }` — an immediate, no-proration switch that starts a fresh 30-day cycle (no real gateway is wired up for recurring billing yet). |
 | `GET /api/admin/subscription-plans` `PATCH /api/admin/subscription-plans/[id]` | ADMIN | Edit a plan's price/feature map. |
 | `GET /api/admin/subscriptions` | ADMIN | Every seller's subscription, with store + plan. `?status=`. |
+
+## Commissions
+
+Every order snapshots `platformFee`/`sellerEarning` at creation time (`src/lib/pricing.ts`'s `computeCommission()`, fed by `resolveCommissionForStore()` — store-specific beats category beats global beats a hardcoded 10% default) and never recomputes them later, same immutability principle as `OrderItem.price`. Commission is taken from the product subtotal only; delivery charges pass straight through to the seller.
+
+| Method & path | Auth | Notes |
+|---|---|---|
+| `GET/POST /api/admin/commission-rules` | ADMIN | List/create. `{ scope: "GLOBAL"\|"CATEGORY"\|"STORE", categoryId?, storeId?, percentage }` — one rule per scope/target, a duplicate is rejected (edit or delete the existing one instead). |
+| `PATCH/DELETE /api/admin/commission-rules/[id]` | ADMIN | Edit the percentage, or remove the rule. |
 
 ## Delivery (delivery partner role)
 

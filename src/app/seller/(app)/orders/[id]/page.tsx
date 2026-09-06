@@ -84,6 +84,14 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
               <span>Amount</span>
               <span>{formatCurrency(order.total)}</span>
             </div>
+            <div className="flex justify-between text-zinc-400">
+              <span>Platform fee</span>
+              <span>-{formatCurrency(order.platformFee)}</span>
+            </div>
+            <div className="flex justify-between font-semibold text-success-600">
+              <span>You earn</span>
+              <span>{formatCurrency(order.sellerEarning)}</span>
+            </div>
           </div>
           <div className="mt-3 flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">

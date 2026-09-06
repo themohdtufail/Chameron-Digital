@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { computeUnitPrice, computeLineTotal, computeCartTotals } from "@/lib/pricing";
+import {
+  computeUnitPrice,
+  computeLineTotal,
+  computeCartTotals,
+  resolveCommissionPercentage,
+  computeCommission,
+  DEFAULT_COMMISSION_PERCENTAGE,
+  type CommissionRuleLike,
+} from "@/lib/pricing";
 
 describe("computeUnitPrice", () => {
   it("uses the base price when there is no discount", () => {
@@ -48,5 +56,48 @@ describe("computeCartTotals", () => {
   it("returns zero subtotal for an empty cart", () => {
     const result = computeCartTotals([], 30);
     expect(result).toEqual({ subtotal: 0, deliveryFee: 30, total: 30 });
+  });
+});
+
+describe("resolveCommissionPercentage", () => {
+  const rules: CommissionRuleLike[] = [
+    { scope: "GLOBAL", storeId: null, categoryId: null, percentage: 10 },
+    { scope: "CATEGORY", storeId: null, categoryId: "cat-fashion", percentage: 15 },
+    { scope: "STORE", storeId: "store-1", categoryId: null, percentage: 5 },
+  ];
+
+  it("prefers a store-specific rule over category and global", () => {
+    expect(resolveCommissionPercentage(rules, { storeId: "store-1", categoryId: "cat-fashion" })).toBe(5);
+  });
+
+  it("falls back to the category rule when no store rule matches", () => {
+    expect(resolveCommissionPercentage(rules, { storeId: "store-2", categoryId: "cat-fashion" })).toBe(15);
+  });
+
+  it("falls back to the global rule when neither store nor category matches", () => {
+    expect(resolveCommissionPercentage(rules, { storeId: "store-2", categoryId: "cat-electronics" })).toBe(10);
+  });
+
+  it("falls back to the hardcoded default when no rules exist at all", () => {
+    expect(resolveCommissionPercentage([], { storeId: "store-2", categoryId: null })).toBe(DEFAULT_COMMISSION_PERCENTAGE);
+  });
+
+  it("skips the category check entirely when the target has no category", () => {
+    expect(resolveCommissionPercentage(rules, { storeId: "store-2", categoryId: null })).toBe(10);
+  });
+});
+
+describe("computeCommission", () => {
+  it("splits the subtotal into platform fee and seller earning", () => {
+    expect(computeCommission(1000, 10)).toEqual({ platformFee: 100, sellerEarning: 900 });
+  });
+
+  it("reconciles exactly against the subtotal for a fractional percentage", () => {
+    const { platformFee, sellerEarning } = computeCommission(999, 12.5);
+    expect(Math.round((platformFee + sellerEarning) * 100) / 100).toBe(999);
+  });
+
+  it("takes zero commission when the percentage is zero", () => {
+    expect(computeCommission(500, 0)).toEqual({ platformFee: 0, sellerEarning: 500 });
   });
 });

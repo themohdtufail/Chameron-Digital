@@ -266,7 +266,34 @@ model Category {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  stores    Store[]
+  stores         Store[]
+  commissionRules CommissionRule[]
+}
+
+enum CommissionScope {
+  GLOBAL
+  CATEGORY
+  STORE
+}
+
+// Resolved store > category > global > DEFAULT_COMMISSION_PERCENTAGE
+// (src/lib/pricing.ts's resolveCommissionPercentage — pure and unit
+// tested). "category" here is a store's own business Category (Fashion,
+// Food, ...), the only category concept that spans an entire order.
+model CommissionRule {
+  id         String          @id @default(cuid())
+  scope      CommissionScope
+  categoryId String?
+  category   Category?       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  storeId    String?
+  store      Store?          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  percentage Float
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@index([scope])
+  @@index([storeId])
+  @@index([categoryId])
 }
 
 // Seller-defined in-store navigation categories (Men, Women, Kids, Offers)
@@ -343,6 +370,7 @@ model Store {
   productRequests   ProductRequest[]
   documents         StoreDocument[]
   subscription      SellerSubscription?
+  commissionRules   CommissionRule[]
 
   @@index([status])
   @@index([city])
@@ -544,6 +572,10 @@ model Order {
   deliveryPartner     User?     @relation("DeliveryPartnerOrders", fields: [deliveryPartnerId], references: [id])
   deliveryAssignedAt  DateTime?
   pickedUpAt          DateTime?
+  // Commission snapshot — computed once at order creation and never
+  // recomputed later, same immutability principle as OrderItem's price.
+  platformFee         Float     @default(0)
+  sellerEarning       Float     @default(0)
   cancelledById   String?
   cancelReason    String?
   cancelledAt     DateTime?

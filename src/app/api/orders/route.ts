@@ -4,7 +4,8 @@ import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
 import { generateOrderNumber, formatCurrency } from "@/lib/utils";
-import { computeUnitPrice, computeCartTotals } from "@/lib/pricing";
+import { computeUnitPrice, computeCartTotals, computeCommission } from "@/lib/pricing";
+import { resolveCommissionForStore } from "@/lib/commission";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { createNotification, notifyLowStockIfCrossed } from "@/lib/notify";
 import { getPaymentGateway } from "@/lib/payment-gateway";
@@ -66,6 +67,10 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     store.deliveryFee
   );
 
+  const commissionPercentage = await resolveCommissionForStore(store.id, store.categoryId);
+  const { platformFee, sellerEarning: subtotalEarning } = computeCommission(subtotal, commissionPercentage);
+  const sellerEarning = subtotalEarning + deliveryFee;
+
   const addressSnapshot = [
     address.addressLine,
     address.landmark,
@@ -94,6 +99,8 @@ export const POST = withApiErrors(async (req: NextRequest) => {
           subtotal,
           deliveryFee,
           total,
+          platformFee,
+          sellerEarning,
           items: {
             create: cartItems.map((item) => {
               const unitPrice = computeUnitPrice(item.product, item.variant);
