@@ -17,11 +17,12 @@ export function CancelOrderButton({ orderId }: { orderId: string }) {
       loading={loading}
       onClick={async () => {
         if (!window.confirm("Cancel this order?")) return;
+        const reason = window.prompt("Why are you cancelling? (optional)") || undefined;
         setLoading(true);
         const res = await fetch(`/api/orders/${orderId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "CANCELLED" }),
+          body: JSON.stringify({ status: "CANCELLED", reason }),
         });
         setLoading(false);
         if (!res.ok) {

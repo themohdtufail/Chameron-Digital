@@ -15,6 +15,8 @@ const checkoutSchema = z.object({
   paymentMethod: z.enum(["COD", "ONLINE"]).default("COD"),
 });
 
+class OutOfStockError extends Error {}
+
 export const GET = withApiErrors(async () => {
   const user = await requireRole("BUYER");
   const orders = await prisma.order.findMany({
@@ -54,6 +56,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     if (item.product.status !== "AVAILABLE") {
       return jsonError(`${item.product.name} is no longer available`, 400);
     }
+    if (!item.product.trackInventory) continue;
     const stock = item.variant ? item.variant.stockQuantity : item.product.stockQuantity;
     if (stock < item.quantity) {
       return jsonError(`Not enough stock for ${item.product.name}`, 400);
@@ -78,66 +81,83 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     .filter(Boolean)
     .join(", ");
 
-  const order = await prisma.$transaction(async (tx) => {
-    const created = await tx.order.create({
-      data: {
-        orderNumber: generateOrderNumber(),
-        buyerId: user.id,
-        storeId: store.id,
-        addressId: address.id,
-        customerName: body.customerName,
-        customerPhone: body.customerPhone,
-        addressSnapshot: addressSnapshot || `${address.city}`,
-        paymentMethod: body.paymentMethod,
-        notes: body.notes,
-        subtotal,
-        deliveryFee,
-        total,
-        items: {
-          create: cartItems.map((item) => {
-            const unitPrice = (item.product.discountPrice ?? item.product.price) + (item.variant?.priceDelta ?? 0);
-            return {
-              productId: item.productId,
-              variantId: item.variantId,
-              productName: item.product.name,
-              variantLabel: item.variant ? `${item.variant.type}: ${item.variant.value}` : null,
-              price: unitPrice,
-              quantity: item.quantity,
-              lineTotal: unitPrice * item.quantity,
-            };
-          }),
+  let order;
+  try {
+    order = await prisma.$transaction(async (tx) => {
+      const created = await tx.order.create({
+        data: {
+          orderNumber: generateOrderNumber(),
+          buyerId: user.id,
+          storeId: store.id,
+          addressId: address.id,
+          customerName: body.customerName,
+          customerPhone: body.customerPhone,
+          addressSnapshot: addressSnapshot || `${address.city}`,
+          paymentMethod: body.paymentMethod,
+          notes: body.notes,
+          subtotal,
+          deliveryFee,
+          total,
+          items: {
+            create: cartItems.map((item) => {
+              const unitPrice = (item.product.discountPrice ?? item.product.price) + (item.variant?.priceDelta ?? 0);
+              return {
+                productId: item.productId,
+                variantId: item.variantId,
+                productName: item.product.name,
+                variantLabel: item.variant ? `${item.variant.type}: ${item.variant.value}` : null,
+                price: unitPrice,
+                quantity: item.quantity,
+                lineTotal: unitPrice * item.quantity,
+              };
+            }),
+          },
         },
-      },
-      include: { items: true },
-    });
+        include: { items: true },
+      });
 
-    for (const item of cartItems) {
-      if (item.variantId) {
-        await tx.productVariant.update({
-          where: { id: item.variantId },
-          data: { stockQuantity: { decrement: item.quantity } },
-        });
-      } else {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stockQuantity: { decrement: item.quantity } },
+      for (const item of cartItems) {
+        if (!item.product.trackInventory) continue;
+
+        // A conditional decrement (stock >= qty in the WHERE clause) closes the
+        // race two simultaneous checkouts could hit on the last unit: the
+        // pre-check above reads a snapshot, but only this row-level guard,
+        // enforced by the database itself, is safe under concurrency.
+        if (item.variantId) {
+          const result = await tx.productVariant.updateMany({
+            where: { id: item.variantId, stockQuantity: { gte: item.quantity } },
+            data: { stockQuantity: { decrement: item.quantity } },
+          });
+          if (result.count === 0) throw new OutOfStockError(item.product.name);
+        } else {
+          const result = await tx.product.updateMany({
+            where: { id: item.productId, stockQuantity: { gte: item.quantity } },
+            data: { stockQuantity: { decrement: item.quantity } },
+          });
+          if (result.count === 0) throw new OutOfStockError(item.product.name);
+        }
+
+        await tx.inventoryLog.create({
+          data: {
+            productId: item.productId,
+            variantId: item.variantId,
+            change: -item.quantity,
+            reason: "ORDER",
+            orderId: created.id,
+          },
         });
       }
-      await tx.inventoryLog.create({
-        data: {
-          productId: item.productId,
-          variantId: item.variantId,
-          change: -item.quantity,
-          reason: "ORDER",
-          orderId: created.id,
-        },
-      });
+
+      await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
+
+      return created;
+    });
+  } catch (err) {
+    if (err instanceof OutOfStockError) {
+      return jsonError(`${err.message} just sold out. Please update your cart.`, 409);
     }
-
-    await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
-
-    return created;
-  });
+    throw err;
+  }
 
   await createNotification({
     userId: store.ownerId,

@@ -18,12 +18,12 @@ export function SellerOrderActions({ orderId, status }: { orderId: string; statu
   const [loading, setLoading] = useState<string | null>(null);
   const router = useRouter();
 
-  async function updateStatus(newStatus: OrderStatusValue) {
+  async function updateStatus(newStatus: OrderStatusValue, reason?: string) {
     setLoading(newStatus);
     const res = await fetch(`/api/orders/${orderId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus }),
+      body: JSON.stringify({ status: newStatus, reason }),
     });
     setLoading(null);
     if (!res.ok) {
@@ -48,7 +48,9 @@ export function SellerOrderActions({ orderId, status }: { orderId: string; statu
           fullWidth
           loading={loading === "REJECTED"}
           onClick={() => {
-            if (window.confirm("Reject this order?")) updateStatus("REJECTED");
+            if (!window.confirm("Reject this order?")) return;
+            const reason = window.prompt("Reason for rejecting? (optional)") || undefined;
+            updateStatus("REJECTED", reason);
           }}
         >
           Reject

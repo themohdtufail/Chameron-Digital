@@ -6,7 +6,12 @@ import { getCurrentUser } from "@/lib/auth";
 import { OrderStatusBadge, OrderStatusTimeline, type OrderStatusValue } from "@/components/OrderStatus";
 import { CancelOrderButton } from "@/components/buyer/CancelOrderButton";
 import { ReviewForm } from "@/components/buyer/ReviewForm";
+import { ReorderButton } from "@/components/buyer/ReorderButton";
+import { ContactStoreButtons } from "@/components/buyer/ContactStoreButtons";
 import { formatCurrency } from "@/lib/utils";
+
+const CANCELLABLE = ["PENDING", "CONFIRMED"];
+const REORDERABLE = ["DELIVERED", "CANCELLED", "REJECTED"];
 
 export const dynamic = "force-dynamic";
 
@@ -95,7 +100,14 @@ export default async function BuyerOrderDetailPage({ params }: { params: { id: s
           </p>
         </section>
 
-        {order.status === "PENDING" && <CancelOrderButton orderId={order.id} />}
+        <ContactStoreButtons phone={order.store.phone} storeName={order.store.name} orderNumber={order.orderNumber} />
+
+        {CANCELLABLE.includes(order.status) && <CancelOrderButton orderId={order.id} />}
+        {REORDERABLE.includes(order.status) && (
+          <ReorderButton
+            items={order.items.map((i) => ({ productId: i.productId, variantId: i.variantId, quantity: i.quantity }))}
+          />
+        )}
         {order.status === "DELIVERED" && !existingReview && <ReviewForm orderId={order.id} />}
       </div>
     </div>
