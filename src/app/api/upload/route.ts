@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
-import { getStorage, MAX_UPLOAD_BYTES, ALLOWED_IMAGE_TYPES, ALLOWED_VIDEO_TYPES, type UploadFolder } from "@/lib/storage";
+import {
+  getStorage,
+  MAX_UPLOAD_BYTES,
+  ALLOWED_IMAGE_TYPES,
+  ALLOWED_VIDEO_TYPES,
+  matchesFileSignature,
+  type UploadFolder,
+} from "@/lib/storage";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
 
 const ALLOWED_FOLDERS: UploadFolder[] = ["stores", "products", "avatars"];
@@ -21,6 +28,10 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   if (!isImage && !isVideo) return jsonError("Unsupported file type", 400);
 
   const buffer = Buffer.from(await file.arrayBuffer());
+  if (!matchesFileSignature(buffer, file.type)) {
+    return jsonError("File content does not match its declared type", 400);
+  }
+
   const url = await getStorage().upload(buffer, file.name, folderInput as UploadFolder);
 
   return NextResponse.json({ url, type: isVideo ? "video" : "image" });

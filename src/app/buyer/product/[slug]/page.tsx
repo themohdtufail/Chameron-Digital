@@ -1,20 +1,28 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { ProductDetailClient } from "@/components/buyer/ProductDetailClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProductDetailPage({ params }: { params: { id: string } }) {
+export default async function ProductDetailPage({ params }: { params: { slug: string } }) {
   const product = await prisma.product.findUnique({
-    where: { id: params.id },
+    where: { slug: params.slug },
     include: {
       images: { orderBy: { position: "asc" } },
       variants: true,
       store: { select: { slug: true, name: true, status: true } },
     },
   });
+
+  // Legacy id-based links (shared, bookmarked, indexed before the slug-based
+  // URL migration — see section 12: no exposed DB ids in buyer-facing URLs)
+  // still resolve: fall back to an id lookup and 301 to the canonical slug.
+  if (!product) {
+    const byId = await prisma.product.findUnique({ where: { id: params.slug }, select: { slug: true } });
+    if (byId) permanentRedirect(`/buyer/product/${byId.slug}`);
+  }
 
   if (!product || product.isHidden || product.store.status !== "APPROVED") notFound();
 

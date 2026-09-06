@@ -16,6 +16,7 @@ export default async function StorePage({ params }: { params: { slug: string } }
     where: { slug: params.slug },
     include: {
       category: true,
+      hours: true,
       productCategories: { orderBy: { createdAt: "asc" } },
       products: {
         where: { isHidden: false },

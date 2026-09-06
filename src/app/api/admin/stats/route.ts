@@ -11,7 +11,10 @@ export const GET = withApiErrors(async () => {
     prisma.store.count({ where: { status: "PENDING" } }),
     prisma.user.count({ where: { role: "BUYER" } }),
     prisma.order.count(),
-    prisma.order.aggregate({ where: { status: { in: ["CONFIRMED", "PREPARING", "COMPLETED"] } }, _sum: { total: true } }),
+    prisma.order.aggregate({
+      where: { status: { in: ["CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "DELIVERED"] } },
+      _sum: { total: true },
+    }),
   ]);
 
   return NextResponse.json({

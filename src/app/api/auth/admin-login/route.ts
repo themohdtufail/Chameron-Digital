@@ -4,9 +4,13 @@ import { prisma } from "@/lib/db";
 import { createSession, setSessionCookie } from "@/lib/auth";
 import { adminLoginSchema } from "@/lib/validation";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
+import { enforceRateLimit, clientIp } from "@/lib/rate-limit";
 
 export const POST = withApiErrors(async (req: NextRequest) => {
   const body = adminLoginSchema.parse(await req.json());
+
+  await enforceRateLimit(clientIp(req), "admin_login", { windowSeconds: 15 * 60, max: 8 });
+  await enforceRateLimit(body.phone, "admin_login_phone", { windowSeconds: 15 * 60, max: 8 });
 
   const user = await prisma.user.findUnique({ where: { phone: body.phone } });
   if (!user || user.role !== "ADMIN" || !user.passwordHash) {

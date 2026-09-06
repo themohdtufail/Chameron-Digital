@@ -14,7 +14,7 @@ export function StoreProductCard({ product }: { product: ProductSummary }) {
     product.discountPrice && product.discountPrice < product.price
       ? Math.round(100 - (product.discountPrice / product.price) * 100)
       : null;
-  const href = `/buyer/product/${product.id}`;
+  const href = `/buyer/product/${product.slug}`;
 
   return (
     <div

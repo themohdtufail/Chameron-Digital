@@ -8,6 +8,7 @@ export const GET = withApiErrors(async (_req: NextRequest, { params }: { params:
     where: { slug: params.slug },
     include: {
       category: true,
+      hours: true,
       productCategories: { orderBy: { createdAt: "asc" } },
       products: {
         where: { isHidden: false },

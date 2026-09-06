@@ -28,13 +28,13 @@ export const POST = withApiErrors(async (req: NextRequest) => {
 
   const order = await prisma.order.findFirst({ where: { id: body.orderId, buyerId: user.id } });
   if (!order) return jsonError("Order not found", 404);
-  if (order.status !== "COMPLETED") return jsonError("You can only review completed orders", 400);
+  if (order.status !== "DELIVERED") return jsonError("You can only review delivered orders", 400);
 
-  const existing = await prisma.review.findFirst({ where: { buyerId: user.id, storeId: order.storeId } });
-  if (existing) return jsonError("You've already reviewed this store", 409);
+  const existing = await prisma.review.findUnique({ where: { orderId: order.id } });
+  if (existing) return jsonError("You've already reviewed this order", 409);
 
   await prisma.review.create({
-    data: { buyerId: user.id, storeId: order.storeId, rating: body.rating, comment: body.comment },
+    data: { buyerId: user.id, storeId: order.storeId, orderId: order.id, rating: body.rating, comment: body.comment },
   });
 
   const agg = await prisma.review.aggregate({ where: { storeId: order.storeId }, _avg: { rating: true }, _count: true });

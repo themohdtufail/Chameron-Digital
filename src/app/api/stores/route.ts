@@ -21,7 +21,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
       category: category ? { slug: category } : undefined,
       name: q ? { contains: q, mode: "insensitive" } : undefined,
     },
-    include: { category: true },
+    include: { category: true, hours: true },
     take: 60,
   });
 

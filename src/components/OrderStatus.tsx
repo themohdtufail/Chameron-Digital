@@ -1,20 +1,32 @@
-import { Check, Clock, ChefHat, PackageCheck, XCircle } from "lucide-react";
+import { Check, Clock, ChefHat, PackageCheck, Truck, Home, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type OrderStatusValue = "PENDING" | "CONFIRMED" | "PREPARING" | "COMPLETED" | "CANCELLED" | "REJECTED";
+export type OrderStatusValue =
+  | "PENDING"
+  | "CONFIRMED"
+  | "PREPARING"
+  | "READY"
+  | "OUT_FOR_DELIVERY"
+  | "DELIVERED"
+  | "CANCELLED"
+  | "REJECTED";
 
 const STEPS: { key: OrderStatusValue; label: string; icon: typeof Clock }[] = [
   { key: "PENDING", label: "Pending", icon: Clock },
   { key: "CONFIRMED", label: "Confirmed", icon: Check },
   { key: "PREPARING", label: "Preparing", icon: ChefHat },
-  { key: "COMPLETED", label: "Completed", icon: PackageCheck },
+  { key: "READY", label: "Ready", icon: PackageCheck },
+  { key: "OUT_FOR_DELIVERY", label: "Out for delivery", icon: Truck },
+  { key: "DELIVERED", label: "Delivered", icon: Home },
 ];
 
 const TONE: Record<OrderStatusValue, string> = {
   PENDING: "bg-accent-50 text-accent-600",
   CONFIRMED: "bg-brand-50 text-brand-600",
   PREPARING: "bg-brand-50 text-brand-600",
-  COMPLETED: "bg-success-50 text-success-600",
+  READY: "bg-brand-50 text-brand-600",
+  OUT_FOR_DELIVERY: "bg-brand-50 text-brand-600",
+  DELIVERED: "bg-success-50 text-success-600",
   CANCELLED: "bg-zinc-100 text-zinc-500",
   REJECTED: "bg-danger-50 text-danger-600",
 };

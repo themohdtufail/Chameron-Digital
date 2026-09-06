@@ -128,7 +128,7 @@ async function main() {
 
   for (const p of fashionProducts) {
     const existing = await prisma.product.findUnique({
-      where: { storeId_slug: { storeId: store1.id, slug: slugify(p.name) } },
+      where: { slug: slugify(p.name) },
     });
     if (existing) continue;
     await prisma.product.create({
@@ -199,7 +199,7 @@ async function main() {
   ];
   for (const p of foodProducts) {
     const existing = await prisma.product.findUnique({
-      where: { storeId_slug: { storeId: store2.id, slug: slugify(p.name) } },
+      where: { slug: slugify(p.name) },
     });
     if (existing) continue;
     await prisma.product.create({

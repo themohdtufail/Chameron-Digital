@@ -17,7 +17,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
     ? await Promise.all([
         prisma.store.findMany({
           where: { status: "APPROVED", name: { contains: q, mode: "insensitive" } },
-          include: { category: true },
+          include: { category: true, hours: true },
           take: 10,
         }),
         prisma.product.findMany({

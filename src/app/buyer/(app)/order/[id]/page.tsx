@@ -20,9 +20,7 @@ export default async function BuyerOrderDetailPage({ params }: { params: { id: s
   if (!order) notFound();
 
   const existingReview =
-    order.status === "COMPLETED"
-      ? await prisma.review.findFirst({ where: { buyerId: user!.id, storeId: order.storeId } })
-      : null;
+    order.status === "DELIVERED" ? await prisma.review.findUnique({ where: { orderId: order.id } }) : null;
 
   return (
     <div className="animate-fade-in pb-10">
@@ -98,7 +96,7 @@ export default async function BuyerOrderDetailPage({ params }: { params: { id: s
         </section>
 
         {order.status === "PENDING" && <CancelOrderButton orderId={order.id} />}
-        {order.status === "COMPLETED" && !existingReview && <ReviewForm orderId={order.id} />}
+        {order.status === "DELIVERED" && !existingReview && <ReviewForm orderId={order.id} />}
       </div>
     </div>
   );

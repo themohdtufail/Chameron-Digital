@@ -30,7 +30,7 @@ export default async function CategoriesPage({
       status: "APPROVED",
       category: searchParams.slug ? { slug: searchParams.slug } : undefined,
     },
-    include: { category: true },
+    include: { category: true, hours: true },
   });
 
   let summaries: StoreSummary[] = stores.map((store) => ({

@@ -27,11 +27,21 @@ export const GET = withApiErrors(async (_req: NextRequest, { params }: { params:
 const STATUS_TRANSITIONS: Record<string, string[]> = {
   PENDING: ["CONFIRMED", "REJECTED"],
   CONFIRMED: ["PREPARING", "REJECTED"],
-  PREPARING: ["COMPLETED"],
+  PREPARING: ["READY"],
+  READY: ["OUT_FOR_DELIVERY"],
+  OUT_FOR_DELIVERY: ["DELIVERED"],
 };
 
 const updateSchema = z.object({
-  status: z.enum(["CONFIRMED", "PREPARING", "COMPLETED", "REJECTED", "CANCELLED"]),
+  status: z.enum([
+    "CONFIRMED",
+    "PREPARING",
+    "READY",
+    "OUT_FOR_DELIVERY",
+    "DELIVERED",
+    "REJECTED",
+    "CANCELLED",
+  ]),
 });
 
 export const PATCH = withApiErrors(async (req: NextRequest, { params }: { params: { id: string } }) => {

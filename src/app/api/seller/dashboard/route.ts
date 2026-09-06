@@ -14,7 +14,7 @@ export const GET = withApiErrors(async () => {
   const [todaysOrders, salesAgg, productCount, distinctCustomers, recentOrders] = await Promise.all([
     prisma.order.count({ where: { storeId: store.id, createdAt: { gte: startOfDay } } }),
     prisma.order.aggregate({
-      where: { storeId: store.id, status: { in: ["CONFIRMED", "PREPARING", "COMPLETED"] } },
+      where: { storeId: store.id, status: { in: ["CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "DELIVERED"] } },
       _sum: { total: true },
     }),
     prisma.product.count({ where: { storeId: store.id } }),

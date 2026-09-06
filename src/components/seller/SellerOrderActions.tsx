@@ -9,7 +9,9 @@ import type { OrderStatusValue } from "@/components/OrderStatus";
 const NEXT_ACTION: Partial<Record<OrderStatusValue, { label: string; status: OrderStatusValue; variant: "primary" }>> = {
   PENDING: { label: "Accept order", status: "CONFIRMED", variant: "primary" },
   CONFIRMED: { label: "Start preparing", status: "PREPARING", variant: "primary" },
-  PREPARING: { label: "Mark completed", status: "COMPLETED", variant: "primary" },
+  PREPARING: { label: "Mark ready", status: "READY", variant: "primary" },
+  READY: { label: "Out for delivery", status: "OUT_FOR_DELIVERY", variant: "primary" },
+  OUT_FOR_DELIVERY: { label: "Mark delivered", status: "DELIVERED", variant: "primary" },
 };
 
 export function SellerOrderActions({ orderId, status }: { orderId: string; status: OrderStatusValue }) {

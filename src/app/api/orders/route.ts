@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
 import { generateOrderNumber } from "@/lib/utils";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 const checkoutSchema = z.object({
   addressId: z.string(),
@@ -26,6 +27,8 @@ export const GET = withApiErrors(async () => {
 export const POST = withApiErrors(async (req: NextRequest) => {
   const user = await requireRole("BUYER");
   const body = checkoutSchema.parse(await req.json());
+
+  await enforceRateLimit(user.id, "order_create", { windowSeconds: 60 * 60, max: 20 });
 
   if (body.paymentMethod === "ONLINE") {
     return jsonError("Online payment is coming soon. Please choose Cash on Delivery.", 400);

@@ -36,7 +36,7 @@ export default async function BuyerHomePage() {
 
   const stores = await prisma.store.findMany({
     where: { status: "APPROVED", city: location ? { equals: location.city, mode: "insensitive" } : undefined },
-    include: { category: true },
+    include: { category: true, hours: true },
     take: 20,
   });
 

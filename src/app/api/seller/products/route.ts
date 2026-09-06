@@ -19,11 +19,11 @@ export const GET = withApiErrors(async () => {
   return NextResponse.json({ products });
 });
 
-async function uniqueProductSlug(storeId: string, base: string) {
+async function uniqueProductSlug(base: string) {
   const slug = slugify(base) || "product";
   let candidate = slug;
   let n = 1;
-  while (await prisma.product.findUnique({ where: { storeId_slug: { storeId, slug: candidate } } })) {
+  while (await prisma.product.findUnique({ where: { slug: candidate } })) {
     candidate = `${slug}-${++n}`;
   }
   return candidate;
@@ -36,7 +36,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   if (store.status !== "APPROVED") return jsonError("Your store must be approved before adding products", 403);
 
   const body = productSchema.parse(await req.json());
-  const slug = await uniqueProductSlug(store.id, body.name);
+  const slug = await uniqueProductSlug(body.name);
 
   const product = await prisma.product.create({
     data: {

@@ -4,9 +4,13 @@ import { verifyOtp } from "@/lib/otp";
 import { createSession, setSessionCookie } from "@/lib/auth";
 import { otpVerifySchema } from "@/lib/validation";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
+import { enforceRateLimit, clientIp } from "@/lib/rate-limit";
 
 export const POST = withApiErrors(async (req: NextRequest) => {
   const body = otpVerifySchema.parse(await req.json());
+
+  await enforceRateLimit(body.phone, "otp_verify", { windowSeconds: 15 * 60, max: 10 });
+  await enforceRateLimit(clientIp(req), "otp_verify_ip", { windowSeconds: 15 * 60, max: 40 });
 
   const result = await verifyOtp(body.phone, "LOGIN", body.code);
   if (!result.success) return jsonError(result.reason, 400);
