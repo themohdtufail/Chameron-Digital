@@ -930,3 +930,34 @@ model AnalyticsEvent {
   @@index([type, createdAt])
   @@index([storeId, createdAt])
 }
+
+// ---------------------------------------------------------------------------
+// Platform settings & feature flags
+// ---------------------------------------------------------------------------
+
+// Key-value tunables (commission default, loyalty rate, trial length, etc.)
+// read through src/lib/settings.ts's getSetting()/getSettingNumber() —
+// a missing row falls back to the hardcoded default in code, so this
+// table only ever needs a row once an admin actually changes something.
+model PlatformSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  group     String   @default("general")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Booleans checked on hot request paths (AI endpoints, online payments,
+// coupons, reviews, delivery-partner assignment) — a tighter, cache-friendlier
+// shape than PlatformSetting's free-form value. A missing row means
+// enabled, so every flag defaults to today's behavior until an admin
+// flips it off.
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  isEnabled   Boolean  @default(true)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

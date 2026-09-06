@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, Gift, Plus, Minus } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { RUPEES_PER_POINT_EARNED, RUPEES_PER_POINT_REDEEMED } from "@/lib/loyalty";
+import { RUPEES_PER_POINT_REDEEMED, getLoyaltyEarnRate } from "@/lib/loyalty";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,10 @@ const TYPE_LABEL: Record<string, string> = {
 
 export default async function BuyerLoyaltyPage() {
   const user = await getCurrentUser();
-  const account = await prisma.loyaltyAccount.findUnique({ where: { userId: user!.id } });
+  const [account, rupeesPerPoint] = await Promise.all([
+    prisma.loyaltyAccount.findUnique({ where: { userId: user!.id } }),
+    getLoyaltyEarnRate(),
+  ]);
   const transactions = account
     ? await prisma.loyaltyTransaction.findMany({
         where: { accountId: account.id },
@@ -45,7 +48,7 @@ export default async function BuyerLoyaltyPage() {
         </div>
 
         <div className="rounded-2xl border border-zinc-100 bg-white p-4 text-sm text-zinc-500 shadow-card">
-          Earn 1 point for every ₹{RUPEES_PER_POINT_EARNED} you spend, credited when your order is delivered. Redeem
+          Earn 1 point for every ₹{rupeesPerPoint} you spend, credited when your order is delivered. Redeem
           points at checkout for ₹{RUPEES_PER_POINT_REDEEMED} off per point.
         </div>
 

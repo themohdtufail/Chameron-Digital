@@ -44,7 +44,8 @@ export interface CommissionRuleLike {
  */
 export function resolveCommissionPercentage(
   rules: CommissionRuleLike[],
-  target: { storeId: string; categoryId: string | null }
+  target: { storeId: string; categoryId: string | null },
+  defaultPercentage: number = DEFAULT_COMMISSION_PERCENTAGE
 ): number {
   const storeRule = rules.find((r) => r.scope === "STORE" && r.storeId === target.storeId);
   if (storeRule) return storeRule.percentage;
@@ -57,7 +58,7 @@ export function resolveCommissionPercentage(
   const globalRule = rules.find((r) => r.scope === "GLOBAL");
   if (globalRule) return globalRule.percentage;
 
-  return DEFAULT_COMMISSION_PERCENTAGE;
+  return defaultPercentage;
 }
 
 /** Commission is taken from the product subtotal only — delivery charges

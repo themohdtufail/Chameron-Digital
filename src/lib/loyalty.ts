@@ -1,14 +1,20 @@
 import { prisma } from "@/lib/db";
+import { getSettingNumber } from "@/lib/settings";
 
-/** ₹100 spent = 1 point. Hardcoded until PlatformSetting exists
- * (Milestone 10) — same seam pattern as commission's default rate. */
+/** ₹100 spent = 1 point by default — overridable via the
+ * "loyalty_rupees_per_point" PlatformSetting (src/lib/settings.ts). */
 export const RUPEES_PER_POINT_EARNED = 100;
 /** 1 point redeemed = ₹1 off. */
 export const RUPEES_PER_POINT_REDEEMED = 1;
 
 /** Pure — floor division, so partial points never accrue. */
-export function computeEarnedPoints(orderTotal: number): number {
-  return Math.floor(orderTotal / RUPEES_PER_POINT_EARNED);
+export function computeEarnedPoints(orderTotal: number, rupeesPerPoint: number = RUPEES_PER_POINT_EARNED): number {
+  return Math.floor(orderTotal / rupeesPerPoint);
+}
+
+/** The effective ₹-per-point rate, reading the admin-configurable override. */
+export async function getLoyaltyEarnRate(): Promise<number> {
+  return getSettingNumber("loyalty_rupees_per_point", RUPEES_PER_POINT_EARNED);
 }
 
 /** Pure — the discount a given point redemption is worth, capped so it
@@ -26,7 +32,8 @@ async function getOrCreateAccount(userId: string) {
 }
 
 export async function earnLoyaltyPoints(userId: string, orderId: string, orderTotal: number) {
-  const points = computeEarnedPoints(orderTotal);
+  const rate = await getLoyaltyEarnRate();
+  const points = computeEarnedPoints(orderTotal, rate);
   if (points <= 0) return;
 
   const account = await getOrCreateAccount(userId);
