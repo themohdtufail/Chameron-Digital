@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth";
 import { storeRegisterSchema, storeUpdateSchema } from "@/lib/validation";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
 import { slugify } from "@/lib/utils";
+import { getSettingNumber } from "@/lib/settings";
 
 export const GET = withApiErrors(async () => {
   const user = await requireRole("SELLER");
@@ -58,16 +59,18 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     data: defaultCategories.map((name) => ({ storeId: store.id, name, slug: slugify(name) })),
   });
 
-  // New sellers get a 14-day GROWTH trial so they can try AI/WhatsApp
+  // New sellers get a GROWTH trial (length admin-configurable via
+  // PlatformSetting "trial_days", default 14) so they can try AI/WhatsApp
   // features before committing to a paid plan.
   const growthPlan = await prisma.subscriptionPlan.findUnique({ where: { key: "GROWTH" } });
   if (growthPlan) {
+    const trialDays = await getSettingNumber("trial_days", 14);
     await prisma.sellerSubscription.create({
       data: {
         storeId: store.id,
         planId: growthPlan.id,
         status: "TRIAL",
-        expiryDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+        expiryDate: new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000),
       },
     });
   }

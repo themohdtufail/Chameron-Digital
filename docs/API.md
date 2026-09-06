@@ -183,3 +183,12 @@ A `DELIVERY_PARTNER` account follows the same OTP-login + approval-gate pattern 
 | `GET /api/admin/stats` | ADMIN | Platform overview tiles. |
 | `GET /api/admin/payments` `?status=` | ADMIN | Every payment platform-wide, with its order/store/buyer. |
 | `GET /api/admin/reports` | ADMIN | 30-day revenue/commission/order totals + daily series, active-seller/buyer/delivery-partner counts, open-ticket count, active-subscription breakdown by plan, and top 5 stores by revenue — the consolidated cross-milestone reports overview. |
+
+## Platform settings & feature flags
+
+Tunables that used to be hardcoded constants (`src/lib/settings.ts`'s `SETTINGS_CATALOG`) — commission default %, loyalty ₹-per-point rate, new-seller trial length, platform name — now read through `getSetting()`/`getSettingNumber()`, which fall back to the same hardcoded value when no `PlatformSetting` row exists yet, so a lapsed/never-configured platform behaves exactly as before. Feature flags (`src/lib/feature-flags.ts`'s `FEATURE_FLAG_CATALOG`) are booleans checked on real request paths — `ai_assistant` (the 3 seller AI endpoints), `online_payments` (checkout's `ONLINE` method), `coupons` (coupon application at checkout), `reviews` (review creation), `delivery_partner_assignment` (assigning a partner to an order) — a missing `FeatureFlag` row means enabled, so every flag defaults to today's behavior until an admin flips it off.
+
+| Method & path | Auth | Notes |
+|---|---|---|
+| `GET/PATCH /api/admin/settings` | ADMIN | GET returns the full catalog merged with any stored overrides. PATCH `{ key, value }` upserts one setting; writes an `AuditLog` row. |
+| `GET/PATCH /api/admin/feature-flags` | ADMIN | GET returns every known flag with its effective state. PATCH `{ key, isEnabled }` upserts one flag; writes an `AuditLog` row. |

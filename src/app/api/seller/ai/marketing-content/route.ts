@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
 import { hasFeature } from "@/lib/subscription";
 import { getAIProvider } from "@/lib/ai";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 
 const schema = z.object({
   occasion: z.string().trim().max(60).optional(),
@@ -13,6 +14,7 @@ const schema = z.object({
 
 export const POST = withApiErrors(async (req: NextRequest) => {
   const user = await requireRole("SELLER");
+  if (!(await isFeatureEnabled("ai_assistant"))) return jsonError("AI assistant is currently unavailable.", 503);
   const store = await prisma.store.findUnique({ where: { ownerId: user.id } });
   if (!store) return jsonError("Store not found", 404);
   if (!(await hasFeature(store.id, "ai"))) {

@@ -11,6 +11,7 @@ import { createNotification, notifyLowStockIfCrossed } from "@/lib/notify";
 import { getPaymentGateway } from "@/lib/payment-gateway";
 import { computeRedemptionDiscount, redeemLoyaltyPoints } from "@/lib/loyalty";
 import { validateCoupon, computeCouponDiscount } from "@/lib/coupon";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 
 const checkoutSchema = z.object({
   addressId: z.string(),
@@ -39,6 +40,13 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   const body = checkoutSchema.parse(await req.json());
 
   await enforceRateLimit(user.id, "order_create", { windowSeconds: 60 * 60, max: 20 });
+
+  if (body.paymentMethod === "ONLINE" && !(await isFeatureEnabled("online_payments"))) {
+    return jsonError("Online payment is currently unavailable. Please choose Cash on Delivery.", 400);
+  }
+  if (body.couponCode && !(await isFeatureEnabled("coupons"))) {
+    return jsonError("Coupons are currently unavailable.", 400);
+  }
 
   const address = await prisma.location.findFirst({ where: { id: body.addressId, userId: user.id } });
   if (!address) return jsonError("Delivery address not found", 404);

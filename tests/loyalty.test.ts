@@ -18,6 +18,11 @@ describe("computeEarnedPoints", () => {
   it("earns zero points for a zero-value order", () => {
     expect(computeEarnedPoints(0)).toBe(0);
   });
+
+  it("uses an admin-configured rate instead of the hardcoded default", () => {
+    expect(computeEarnedPoints(50, 50)).toBe(1);
+    expect(computeEarnedPoints(50, 100)).toBe(0);
+  });
 });
 
 describe("computeRedemptionDiscount", () => {

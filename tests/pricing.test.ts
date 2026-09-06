@@ -85,6 +85,10 @@ describe("resolveCommissionPercentage", () => {
   it("skips the category check entirely when the target has no category", () => {
     expect(resolveCommissionPercentage(rules, { storeId: "store-2", categoryId: null })).toBe(10);
   });
+
+  it("uses an admin-configured default percentage instead of the hardcoded one when no rule matches", () => {
+    expect(resolveCommissionPercentage([], { storeId: "store-2", categoryId: null }, 7.5)).toBe(7.5);
+  });
 });
 
 describe("computeCommission", () => {

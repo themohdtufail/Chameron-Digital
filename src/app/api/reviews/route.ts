@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 
 const reviewSchema = z.object({
   orderId: z.string(),
@@ -26,6 +27,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
 
 export const POST = withApiErrors(async (req: NextRequest) => {
   const user = await requireRole("BUYER");
+  if (!(await isFeatureEnabled("reviews"))) return jsonError("Reviews are temporarily disabled.", 503);
   const body = reviewSchema.parse(await req.json());
 
   await enforceRateLimit(user.id, "review_create", { windowSeconds: 60 * 60, max: 20 });

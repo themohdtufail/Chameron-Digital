@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
 import { createNotification } from "@/lib/notify";
 import { writeAuditLog } from "@/lib/audit";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 
 const NOT_YET_ASSIGNABLE = new Set(["DELIVERED", "CANCELLED", "REJECTED"]);
 
@@ -32,6 +33,9 @@ export const PATCH = withApiErrors(async (req: NextRequest, { params }: { params
   }
 
   if (deliveryPartnerId) {
+    if (!(await isFeatureEnabled("delivery_partner_assignment"))) {
+      return jsonError("Delivery partner assignment is currently disabled.", 400);
+    }
     const partner = await prisma.deliveryPartner.findUnique({
       where: { id: deliveryPartnerId },
       include: { user: { select: { id: true, name: true } } },

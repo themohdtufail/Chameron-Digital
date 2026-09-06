@@ -4,12 +4,14 @@ import { requireRole } from "@/lib/auth";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
 import { hasFeature } from "@/lib/subscription";
 import { getAIProvider } from "@/lib/ai";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 import type { OrderStatus } from "@prisma/client";
 
 const REVENUE_STATUSES: OrderStatus[] = ["CONFIRMED", "PREPARING", "READY", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED"];
 
 export const GET = withApiErrors(async () => {
   const user = await requireRole("SELLER");
+  if (!(await isFeatureEnabled("ai_assistant"))) return jsonError("AI assistant is currently unavailable.", 503);
   const store = await prisma.store.findUnique({ where: { ownerId: user.id } });
   if (!store) return jsonError("Store not found", 404);
   if (!(await hasFeature(store.id, "ai"))) {

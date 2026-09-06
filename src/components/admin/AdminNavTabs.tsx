@@ -16,6 +16,7 @@ const tabs = [
   { href: "/admin/categories", label: "Categories" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/orders", label: "Orders" },
+  { href: "/admin/settings", label: "Settings" },
 ];
 
 export function AdminNavTabs() {
