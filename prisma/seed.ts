@@ -224,7 +224,7 @@ async function main() {
     update: {},
     create: { phone: "+919876500004", role: "SELLER", name: "Vikram Singh" },
   });
-  await prisma.store.upsert({
+  const store3 = await prisma.store.upsert({
     where: { ownerId: seller3.id },
     update: {},
     create: {
@@ -240,6 +240,54 @@ async function main() {
       state: "Jammu and Kashmir",
       status: "PENDING",
     },
+  });
+
+  // ---- Subscription plans -------------------------------------------------
+  const planDefs = [
+    {
+      key: "STARTER",
+      name: "Starter",
+      priceMonthly: 0,
+      features: { maxProducts: 20, ai: false, whatsappTemplates: false, advancedAnalytics: false },
+    },
+    {
+      key: "GROWTH",
+      name: "Growth",
+      priceMonthly: 999,
+      features: { maxProducts: 200, ai: true, whatsappTemplates: true, advancedAnalytics: false },
+    },
+    {
+      key: "PREMIUM",
+      name: "Premium",
+      priceMonthly: 2499,
+      features: { maxProducts: null, ai: true, whatsappTemplates: true, advancedAnalytics: true },
+    },
+  ];
+  const plans: Record<string, { id: string }> = {};
+  for (const p of planDefs) {
+    plans[p.key] = await prisma.subscriptionPlan.upsert({
+      where: { key: p.key },
+      update: {},
+      create: p,
+    });
+  }
+
+  const oneYear = 365 * 24 * 60 * 60 * 1000;
+  const twoWeeks = 14 * 24 * 60 * 60 * 1000;
+  await prisma.sellerSubscription.upsert({
+    where: { storeId: store1.id },
+    update: {},
+    create: { storeId: store1.id, planId: plans["PREMIUM"].id, status: "ACTIVE", expiryDate: new Date(Date.now() + oneYear) },
+  });
+  await prisma.sellerSubscription.upsert({
+    where: { storeId: store2.id },
+    update: {},
+    create: { storeId: store2.id, planId: plans["GROWTH"].id, status: "ACTIVE", expiryDate: new Date(Date.now() + oneYear) },
+  });
+  await prisma.sellerSubscription.upsert({
+    where: { storeId: store3.id },
+    update: {},
+    create: { storeId: store3.id, planId: plans["GROWTH"].id, status: "TRIAL", expiryDate: new Date(Date.now() + twoWeeks) },
   });
 
   // ---- Notification templates -------------------------------------------

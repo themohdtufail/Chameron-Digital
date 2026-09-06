@@ -92,6 +92,7 @@ export const POST = withApiErrors(async (req: NextRequest, { params }: { params:
       relatedOrderId: payment.order.id,
       templateKey: "payment_received",
       vars: { orderNumber: payment.order.orderNumber, amount: formatCurrency(payment.amount) },
+      storeId: payment.order.storeId,
     });
   }
 

@@ -165,6 +165,7 @@ export const PATCH = withApiErrors(async (req: NextRequest, { params }: { params
       relatedOrderId: order.id,
       templateKey: "order_cancelled",
       vars: { orderNumber: order.orderNumber, reason: reason ? ` Reason: ${reason}` : "" },
+      storeId: order.storeId,
     });
   } else {
     await createNotification({
@@ -178,6 +179,7 @@ export const PATCH = withApiErrors(async (req: NextRequest, { params }: { params
       relatedOrderId: order.id,
       templateKey: TEMPLATE_KEY_BY_STATUS[status],
       vars: { orderNumber: order.orderNumber, storeName: order.store.name },
+      storeId: order.storeId,
     });
   }
 

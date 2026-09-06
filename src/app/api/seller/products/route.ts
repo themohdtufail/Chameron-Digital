@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth";
 import { productSchema } from "@/lib/validation";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
 import { slugify } from "@/lib/utils";
+import { getPlanFeatures } from "@/lib/subscription";
 
 export const GET = withApiErrors(async () => {
   const user = await requireRole("SELLER");
@@ -34,6 +35,17 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   const store = await prisma.store.findUnique({ where: { ownerId: user.id } });
   if (!store) return jsonError("Store not found", 404);
   if (store.status !== "APPROVED") return jsonError("Your store must be approved before adding products", 403);
+
+  const { maxProducts } = await getPlanFeatures(store.id);
+  if (maxProducts !== null) {
+    const productCount = await prisma.product.count({ where: { storeId: store.id } });
+    if (productCount >= maxProducts) {
+      return jsonError(
+        `Your plan allows up to ${maxProducts} products. Upgrade your plan to add more.`,
+        403
+      );
+    }
+  }
 
   const body = productSchema.parse(await req.json());
   const slug = await uniqueProductSlug(body.name);

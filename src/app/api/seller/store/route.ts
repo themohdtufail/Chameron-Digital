@@ -58,6 +58,20 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     data: defaultCategories.map((name) => ({ storeId: store.id, name, slug: slugify(name) })),
   });
 
+  // New sellers get a 14-day GROWTH trial so they can try AI/WhatsApp
+  // features before committing to a paid plan.
+  const growthPlan = await prisma.subscriptionPlan.findUnique({ where: { key: "GROWTH" } });
+  if (growthPlan) {
+    await prisma.sellerSubscription.create({
+      data: {
+        storeId: store.id,
+        planId: growthPlan.id,
+        status: "TRIAL",
+        expiryDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+      },
+    });
+  }
+
   return NextResponse.json({ store });
 });
 

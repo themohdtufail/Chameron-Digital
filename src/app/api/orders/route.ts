@@ -178,6 +178,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     relatedOrderId: order.id,
     templateKey: "new_order",
     vars: { orderNumber: order.orderNumber, customerName: body.customerName, amount: formatCurrency(order.total) },
+    storeId: store.id,
   });
 
   await createNotification({
@@ -188,12 +189,14 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     relatedOrderId: order.id,
     templateKey: "order_placed",
     vars: { orderNumber: order.orderNumber, storeName: store.name, amount: formatCurrency(order.total) },
+    storeId: store.id,
   });
 
   for (const item of cartItems) {
     if (item.variantId || !item.product.trackInventory) continue;
     await notifyLowStockIfCrossed({
       storeOwnerId: store.ownerId,
+      storeId: store.id,
       productId: item.productId,
       productName: item.product.name,
       previousStock: item.product.stockQuantity,

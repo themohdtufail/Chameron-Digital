@@ -50,6 +50,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   if (!body.variantId && product.trackInventory) {
     await notifyLowStockIfCrossed({
       storeOwnerId: store.ownerId,
+      storeId: store.id,
       productId: product.id,
       productName: product.name,
       previousStock: product.stockQuantity,

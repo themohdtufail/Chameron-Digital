@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { hasFeature } from "@/lib/subscription";
 import type { NotificationType } from "@prisma/client";
 
 interface TemplateLike {
@@ -42,6 +43,10 @@ interface CreateNotificationInput {
    * sendWhatsApp() to the user's phone with the same vars. */
   templateKey?: string;
   vars?: Record<string, string | number>;
+  /** The order's store, when known — gates the WhatsApp send behind that
+   * store's plan (GROWTH+ only). Omitted for notifications with no store
+   * context (e.g. none today), which skip the WhatsApp branch entirely. */
+  storeId?: string;
 }
 
 /**
@@ -65,7 +70,7 @@ export async function createNotification(input: CreateNotificationInput) {
     const waTemplate = await prisma.notificationTemplate.findUnique({
       where: { key: `${input.templateKey}_whatsapp` },
     });
-    if (waTemplate) {
+    if (waTemplate && (!input.storeId || (await hasFeature(input.storeId, "whatsappTemplates")))) {
       const user = await prisma.user.findUnique({ where: { id: input.userId }, select: { phone: true } });
       if (user) {
         await sendWhatsApp(user.phone, renderTemplate(waTemplate, input.vars ?? {}).body);
@@ -93,6 +98,7 @@ export async function createNotification(input: CreateNotificationInput) {
  */
 export async function notifyLowStockIfCrossed(input: {
   storeOwnerId: string;
+  storeId: string;
   productId: string;
   productName: string;
   previousStock: number;
@@ -121,5 +127,6 @@ export async function notifyLowStockIfCrossed(input: {
     body: `${productName} is down to ${newStock} unit${newStock === 1 ? "" : "s"} — below your threshold of ${threshold}.`,
     templateKey: "low_stock",
     vars: { productName, stock: newStock, threshold },
+    storeId: input.storeId,
   });
 }

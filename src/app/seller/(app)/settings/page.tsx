@@ -158,6 +158,13 @@ export default function SellerSettingsPage() {
           Store verification
         </a>
 
+        <a
+          href="/seller/plans"
+          className="flex items-center justify-center gap-2 rounded-xl border border-zinc-200 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 lg:hidden"
+        >
+          Plans &amp; billing
+        </a>
+
         <div className="grid grid-cols-2 gap-3">
           <FileUpload value={logoUrl} onChange={setLogoUrl} folder="stores" label="Store logo" />
           <FileUpload value={coverUrl} onChange={setCoverUrl} folder="stores" label="Cover image" />

@@ -100,6 +100,17 @@ Every order gets a `Payment` row at creation (`src/lib/payment-gateway.ts` — a
 | `GET /api/seller/product-requests` | SELLER | Requests directed at the store. |
 | `PATCH /api/seller/product-requests/[id]` | SELLER (own store) | Respond available/unavailable + price/message, optionally attach an existing product; notifies the buyer. |
 
+## Subscriptions
+
+New sellers get a 14-day `TRIAL` GROWTH subscription on store registration. `hasFeature()`/`getPlanFeatures()` (`src/lib/subscription.ts`) lazily flip an expired `ACTIVE`/`TRIAL` row to `EXPIRED` on read (no cron) and fall back to `STARTER`'s feature set once expired — a lapsed plan downgrades rather than locks the store out. Gated today: product-count limit (`POST /api/seller/products`) and WhatsApp sends (`createNotification`'s `storeId` param, GROWTH+ only).
+
+| Method & path | Auth | Notes |
+|---|---|---|
+| `GET /api/subscription-plans` | any | The 3 seeded plans (STARTER/GROWTH/PREMIUM) with pricing + feature map. |
+| `GET/PATCH /api/seller/subscription` | SELLER | Own subscription (+ live product count). PATCH `{ planKey }` — an immediate, no-proration switch that starts a fresh 30-day cycle (no real gateway is wired up for recurring billing yet). |
+| `GET /api/admin/subscription-plans` `PATCH /api/admin/subscription-plans/[id]` | ADMIN | Edit a plan's price/feature map. |
+| `GET /api/admin/subscriptions` | ADMIN | Every seller's subscription, with store + plan. `?status=`. |
+
 ## Delivery (delivery partner role)
 
 A `DELIVERY_PARTNER` account follows the same OTP-login + approval-gate pattern as a seller: register (`POST /api/delivery/profile`) after first login, then wait for admin approval before `/delivery/*` pages unlock (mirrors `Store`'s `PENDING→APPROVED` gate, via the `DeliveryPartner` model). Assignment is platform-wide — any seller can assign any admin-approved partner to their order (no geo-matching yet).
