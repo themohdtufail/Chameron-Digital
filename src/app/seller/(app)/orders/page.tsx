@@ -30,10 +30,16 @@ export default function SellerOrdersPage() {
   const [orders, setOrders] = useState<OrderRow[] | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     setOrders(null);
     fetch(`/api/seller/orders?group=${tab}`, { cache: "no-store" })
       .then((r) => r.json())
-      .then((d) => setOrders(d.orders ?? []));
+      .then((d) => {
+        if (!cancelled) setOrders(d.orders ?? []);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [tab]);
 
   return (

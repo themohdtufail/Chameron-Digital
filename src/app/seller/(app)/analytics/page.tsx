@@ -49,10 +49,16 @@ export default function SellerAnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     setData(null);
     fetch(`/api/seller/analytics?range=${range}`)
       .then((r) => r.json())
-      .then(setData);
+      .then((d) => {
+        if (!cancelled) setData(d);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [range]);
 
   return (
