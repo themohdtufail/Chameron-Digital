@@ -13,6 +13,7 @@ import {
   BarChart3,
   Users,
   Settings,
+  ShieldCheck,
   Store as StoreIcon,
   ExternalLink,
 } from "lucide-react";
@@ -29,6 +30,7 @@ const items = [
   { href: "/seller/requests", label: "Product requests", icon: Inbox },
   { href: "/seller/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/seller/customers", label: "Customers", icon: Users },
+  { href: "/seller/verification", label: "Verification", icon: ShieldCheck },
   { href: "/seller/settings", label: "Settings", icon: Settings },
 ];
 

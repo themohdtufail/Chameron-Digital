@@ -11,7 +11,7 @@ import {
 import { withApiErrors, jsonError } from "@/lib/api-utils";
 import { enforceRateLimit } from "@/lib/rate-limit";
 
-const ALLOWED_FOLDERS: UploadFolder[] = ["stores", "products", "avatars", "reviews", "requests"];
+const ALLOWED_FOLDERS: UploadFolder[] = ["stores", "products", "avatars", "reviews", "requests", "documents"];
 
 export const POST = withApiErrors(async (req: NextRequest) => {
   const user = await requireUser();

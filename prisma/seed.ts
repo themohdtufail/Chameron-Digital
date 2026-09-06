@@ -242,6 +242,38 @@ async function main() {
     },
   });
 
+  // ---- Notification templates -------------------------------------------
+  // {{placeholder}} tokens rendered by renderTemplate() (src/lib/notify.ts).
+  // IN_APP rows back createNotification()'s templateKey; the matching
+  // "<key>_whatsapp" row also triggers the WhatsApp seam for that event.
+  const notificationTemplateDefs: { key: string; channel: "IN_APP" | "WHATSAPP"; title: string; body: string }[] = [
+    { key: "order_placed", channel: "IN_APP", title: "Order placed", body: "Your order {{orderNumber}} from {{storeName}} has been placed for {{amount}}." },
+    { key: "order_placed_whatsapp", channel: "WHATSAPP", title: "Order placed", body: "Hi! Your order {{orderNumber}} from {{storeName}} has been placed for {{amount}}. We'll keep you posted." },
+    { key: "new_order", channel: "IN_APP", title: "New order received", body: "{{customerName}} placed order {{orderNumber}} for {{amount}}." },
+    { key: "new_order_whatsapp", channel: "WHATSAPP", title: "New order received", body: "New order alert! {{customerName}} just placed order {{orderNumber}} for {{amount}}." },
+    { key: "order_confirmed", channel: "IN_APP", title: "Order confirmed", body: "Your order {{orderNumber}} from {{storeName}} is now confirmed." },
+    { key: "order_confirmed_whatsapp", channel: "WHATSAPP", title: "Order confirmed", body: "Good news! Your order {{orderNumber}} from {{storeName}} has been confirmed." },
+    { key: "order_preparing", channel: "IN_APP", title: "Order being prepared", body: "Your order {{orderNumber}} from {{storeName}} is being prepared." },
+    { key: "order_preparing_whatsapp", channel: "WHATSAPP", title: "Order being prepared", body: "Your order {{orderNumber}} from {{storeName}} is being prepared now." },
+    { key: "order_shipped", channel: "IN_APP", title: "Order out for delivery", body: "Your order {{orderNumber}} from {{storeName}} is out for delivery." },
+    { key: "order_shipped_whatsapp", channel: "WHATSAPP", title: "Order out for delivery", body: "Your order {{orderNumber}} from {{storeName}} is on its way!" },
+    { key: "order_delivered", channel: "IN_APP", title: "Order delivered", body: "Your order {{orderNumber}} from {{storeName}} has been delivered." },
+    { key: "order_delivered_whatsapp", channel: "WHATSAPP", title: "Order delivered", body: "Your order {{orderNumber}} from {{storeName}} has been delivered. Enjoy!" },
+    { key: "order_cancelled", channel: "IN_APP", title: "Order cancelled", body: "Order {{orderNumber}} was cancelled by the buyer.{{reason}}" },
+    { key: "order_cancelled_whatsapp", channel: "WHATSAPP", title: "Order cancelled", body: "Order {{orderNumber}} was cancelled by the buyer.{{reason}}" },
+    { key: "payment_received", channel: "IN_APP", title: "Payment received", body: "Payment of {{amount}} received for order {{orderNumber}}." },
+    { key: "payment_received_whatsapp", channel: "WHATSAPP", title: "Payment received", body: "Payment of {{amount}} received for your order {{orderNumber}}." },
+    { key: "low_stock", channel: "IN_APP", title: "Product running low", body: "{{productName}} is down to {{stock}} unit(s) — below your threshold of {{threshold}}." },
+    { key: "low_stock_whatsapp", channel: "WHATSAPP", title: "Product running low", body: "Heads up: {{productName}} is down to {{stock}} unit(s), below your threshold of {{threshold}}." },
+  ];
+  for (const t of notificationTemplateDefs) {
+    await prisma.notificationTemplate.upsert({
+      where: { key: t.key },
+      update: {},
+      create: t,
+    });
+  }
+
   console.log("Seed complete.");
   console.log("----------------------------------------------------");
   console.log(`Admin login:  ${adminPhone} / ${adminPassword}`);

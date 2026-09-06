@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import toast from "react-hot-toast";
 import { Store as StoreIcon, Check, X, Ban } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
@@ -15,15 +16,21 @@ interface StoreRow {
   name: string;
   city: string;
   logoUrl: string | null;
-  status: "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
+  status: "PENDING" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | "SUSPENDED";
   owner: { name: string | null; phone: string };
   category: { name: string } | null;
   _count: { products: number; orders: number };
 }
 
-const TABS = ["PENDING", "APPROVED", "REJECTED", "SUSPENDED"] as const;
+const TABS = ["PENDING", "UNDER_REVIEW", "APPROVED", "REJECTED", "SUSPENDED"] as const;
 
-const STATUS_TONE = { PENDING: "accent", APPROVED: "success", REJECTED: "danger", SUSPENDED: "neutral" } as const;
+const STATUS_TONE = {
+  PENDING: "accent",
+  UNDER_REVIEW: "accent",
+  APPROVED: "success",
+  REJECTED: "danger",
+  SUSPENDED: "neutral",
+} as const;
 
 export default function AdminSellersPage() {
   const [tab, setTab] = useState<(typeof TABS)[number]>("PENDING");
@@ -101,17 +108,27 @@ export default function AdminSellersPage() {
                   </div>
                 )}
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-zinc-900">{s.name}</p>
+              <Link href={`/admin/sellers/${s.id}`} className="min-w-0 flex-1">
+                <p className="truncate text-sm font-bold text-zinc-900 hover:underline">{s.name}</p>
                 <p className="text-xs text-zinc-500">
                   {s.owner.name ?? s.owner.phone} · {s.city} · {s.category?.name ?? "Uncategorized"}
                 </p>
                 <p className="text-xs text-zinc-400">
                   {s._count.products} products · {s._count.orders} orders
                 </p>
-              </div>
+              </Link>
               <Badge tone={STATUS_TONE[s.status]}>{s.status}</Badge>
               <div className="flex shrink-0 gap-1.5">
+                {s.status === "PENDING" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busyId === s.id}
+                    onClick={() => updateStatus(s.id, "UNDER_REVIEW")}
+                  >
+                    Review
+                  </Button>
+                )}
                 {s.status !== "APPROVED" && (
                   <Button size="sm" disabled={busyId === s.id} onClick={() => updateStatus(s.id, "APPROVED")}>
                     <Check className="h-3.5 w-3.5" />

@@ -5,7 +5,7 @@ import { nanoid } from "nanoid";
 
 export { matchesFileSignature } from "@/lib/file-signature";
 
-export type UploadFolder = "stores" | "products" | "avatars" | "reviews" | "requests";
+export type UploadFolder = "stores" | "products" | "avatars" | "reviews" | "requests" | "documents";
 
 export interface StorageDriver {
   upload(file: Buffer, originalName: string, folder: UploadFolder): Promise<string>;

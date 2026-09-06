@@ -90,6 +90,8 @@ export const POST = withApiErrors(async (req: NextRequest, { params }: { params:
       title: "Payment received",
       body: `Payment of ${formatCurrency(payment.amount)} received for order ${payment.order.orderNumber}.`,
       relatedOrderId: payment.order.id,
+      templateKey: "payment_received",
+      vars: { orderNumber: payment.order.orderNumber, amount: formatCurrency(payment.amount) },
     });
   }
 

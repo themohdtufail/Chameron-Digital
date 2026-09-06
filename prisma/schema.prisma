@@ -22,11 +22,28 @@ enum Role {
   DELIVERY_PARTNER
 }
 
+// UNDER_REVIEW is additive: it sits between PENDING and APPROVED/REJECTED
+// once a seller has submitted verification documents for review, but
+// every existing PENDING/APPROVED/REJECTED/SUSPENDED row and code path
+// keeps working untouched.
 enum StoreStatus {
   PENDING
+  UNDER_REVIEW
   APPROVED
   REJECTED
   SUSPENDED
+}
+
+enum StoreDocumentType {
+  SHOP_PROOF
+  GST
+  FSSAI
+  BUSINESS_CERTIFICATE
+}
+
+enum NotificationChannel {
+  IN_APP
+  WHATSAPP
 }
 
 enum ProductStatus {
@@ -324,10 +341,26 @@ model Store {
   orders            Order[]
   reviews           Review[]
   productRequests   ProductRequest[]
+  documents         StoreDocument[]
 
   @@index([status])
   @@index([city])
   @@index([categoryId])
+}
+
+// Verification documents backing Store.isVerified — kept separate from the
+// status approval gate (decision #6): a store can be APPROVED and trading
+// before it's ever verified; isVerified is a buyer-facing trust badge an
+// admin sets only after reviewing these uploads.
+model StoreDocument {
+  id         String            @id @default(cuid())
+  storeId    String
+  store      Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  type       StoreDocumentType
+  url        String
+  uploadedAt DateTime          @default(now())
+
+  @@index([storeId])
 }
 
 model Product {
@@ -617,6 +650,22 @@ model Notification {
   createdAt               DateTime         @default(now())
 
   @@index([userId, isRead])
+}
+
+// Structured, swappable notification content per event key — title/body
+// support {{placeholder}} tokens (rendered by renderTemplate() in
+// src/lib/notify.ts). A WHATSAPP row for a key means createNotification()
+// also calls the sendWhatsApp() seam for that event; no real WhatsApp
+// Business API credentials exist yet, so that stub just logs in dev,
+// matching the OTP dev-mode pattern.
+model NotificationTemplate {
+  id        String               @id @default(cuid())
+  key       String               @unique
+  channel   NotificationChannel
+  title     String
+  body      String
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
 }
 
 // ---------------------------------------------------------------------------

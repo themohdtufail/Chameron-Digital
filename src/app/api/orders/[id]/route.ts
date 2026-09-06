@@ -17,6 +17,16 @@ const STATUS_LABEL: Record<string, string> = {
   CANCELLED: "cancelled",
 };
 
+// Only these statuses have a seeded NotificationTemplate (matching the
+// spec's named events); the rest keep the generic STATUS_LABEL-based
+// message with no templateKey (createNotification falls back cleanly).
+const TEMPLATE_KEY_BY_STATUS: Partial<Record<string, string>> = {
+  CONFIRMED: "order_confirmed",
+  PREPARING: "order_preparing",
+  OUT_FOR_DELIVERY: "order_shipped",
+  DELIVERED: "order_delivered",
+};
+
 export const GET = withApiErrors(async (_req: NextRequest, { params }: { params: { id: string } }) => {
   const user = await requireUser();
   const order = await prisma.order.findUnique({
@@ -153,6 +163,8 @@ export const PATCH = withApiErrors(async (req: NextRequest, { params }: { params
       title: "Order cancelled",
       body: `Order ${order.orderNumber} was cancelled by the buyer.${reason ? ` Reason: ${reason}` : ""}`,
       relatedOrderId: order.id,
+      templateKey: "order_cancelled",
+      vars: { orderNumber: order.orderNumber, reason: reason ? ` Reason: ${reason}` : "" },
     });
   } else {
     await createNotification({
@@ -164,6 +176,8 @@ export const PATCH = withApiErrors(async (req: NextRequest, { params }: { params
           ? `Your order ${order.orderNumber} from ${order.store.name} was rejected.${reason ? ` Reason: ${reason}` : ""}`
           : `Your order ${order.orderNumber} from ${order.store.name} is now ${STATUS_LABEL[status] ?? status.toLowerCase()}.`,
       relatedOrderId: order.id,
+      templateKey: TEMPLATE_KEY_BY_STATUS[status],
+      vars: { orderNumber: order.orderNumber, storeName: order.store.name },
     });
   }
 

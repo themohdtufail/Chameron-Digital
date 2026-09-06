@@ -176,6 +176,8 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     title: "New order received",
     body: `${body.customerName} placed order ${order.orderNumber} for ${formatCurrency(order.total)}.`,
     relatedOrderId: order.id,
+    templateKey: "new_order",
+    vars: { orderNumber: order.orderNumber, customerName: body.customerName, amount: formatCurrency(order.total) },
   });
 
   await createNotification({
@@ -184,6 +186,8 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     title: "Order placed",
     body: `Your order ${order.orderNumber} from ${store.name} has been placed for ${formatCurrency(order.total)}.`,
     relatedOrderId: order.id,
+    templateKey: "order_placed",
+    vars: { orderNumber: order.orderNumber, storeName: store.name, amount: formatCurrency(order.total) },
   });
 
   for (const item of cartItems) {

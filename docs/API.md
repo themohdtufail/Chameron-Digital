@@ -78,13 +78,14 @@ Every order gets a `Payment` row at creation (`src/lib/payment-gateway.ts` — a
 
 | Method & path | Auth | Notes |
 |---|---|---|
-| `POST /api/upload` | any | Multipart form (`file`, `folder` ∈ `stores`/`products`/`avatars`/`reviews`/`requests`). MIME allowlist + 10MB cap + magic-byte signature check. Rate-limited. |
+| `POST /api/upload` | any | Multipart form (`file`, `folder` ∈ `stores`/`products`/`avatars`/`reviews`/`requests`/`documents`). MIME allowlist + 10MB cap + magic-byte signature check. Rate-limited. |
 
 ## Seller
 
 | Method & path | Auth | Notes |
 |---|---|---|
-| `GET/POST /api/seller/store` `PATCH /api/seller/store` | SELLER | Registration + settings, including the per-day `hours` array, `vacationMode`/`vacationUntil`. |
+| `GET/POST /api/seller/store` `PATCH /api/seller/store` | SELLER | Registration + settings, including the per-day `hours` array, `vacationMode`/`vacationUntil`, `minOrderAmount`. |
+| `GET/POST /api/seller/documents` `DELETE /api/seller/documents/[id]` | SELLER | Verification document uploads (`type` ∈ `SHOP_PROOF`/`GST`/`FSSAI`/`BUSINESS_CERTIFICATE`, `url` from `/api/upload` with `folder=documents`). Reviewed by admin, who sets `Store.isVerified` — kept separate from the `status` approval gate. |
 | `GET/POST /api/seller/products` | SELLER | Own catalog; slugs are globally unique. |
 | `GET/PATCH/DELETE /api/seller/products/[id]` | SELLER (own store) | PATCH writes an `AuditLog` row on a price change; DELETE writes one too. |
 | `GET/POST /api/seller/product-categories` | SELLER | In-store nav categories. |
@@ -114,7 +115,7 @@ A `DELIVERY_PARTNER` account follows the same OTP-login + approval-gate pattern 
 | Method & path | Auth | Notes |
 |---|---|---|
 | `GET/POST /api/admin/categories` `PATCH/DELETE /api/admin/categories/[id]` | ADMIN | Global categories. |
-| `GET /api/admin/stores` `PATCH /api/admin/stores/[id]` | ADMIN | Approve/reject/suspend; writes an `AuditLog` row. |
+| `GET /api/admin/stores` `GET/PATCH /api/admin/stores/[id]` | ADMIN | List/detail (detail includes `documents`); PATCH body `{ status?, rejectionReason?, isVerified? }` — `status` now also accepts `UNDER_REVIEW` (PENDING→UNDER_REVIEW→APPROVED/REJECTED); `isVerified` is independent of `status`. Writes an `AuditLog` row per field changed. |
 | `GET /api/admin/users` `PATCH /api/admin/users/[id]` | ADMIN | Activate/deactivate; writes an `AuditLog` row. |
 | `GET /api/admin/delivery-partners` `PATCH /api/admin/delivery-partners/[id]` | ADMIN | Approve/reject/suspend delivery partner applications; writes an `AuditLog` row. |
 | `GET /api/admin/orders` | ADMIN | All orders, platform-wide. |
