@@ -15,6 +15,7 @@ const tabs = [
   { href: "/admin/payouts", label: "Payouts" },
   { href: "/admin/support", label: "Support" },
   { href: "/admin/categories", label: "Categories" },
+  { href: "/admin/cities", label: "Cities" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/orders", label: "Orders" },
   { href: "/admin/settings", label: "Settings" },

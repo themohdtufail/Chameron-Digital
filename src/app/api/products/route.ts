@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { withApiErrors } from "@/lib/api-utils";
+import { computeSearchRank } from "@/lib/search";
 
 export const GET = withApiErrors(async (req: NextRequest) => {
   const { searchParams } = req.nextUrl;
@@ -24,8 +25,13 @@ export const GET = withApiErrors(async (req: NextRequest) => {
     take: 60,
   });
 
+  // A text search ranks by match quality (exact/starts-with/whole-word beats
+  // a mere substring) — Array.sort is stable, so ties keep the createdAt-desc
+  // order from the query above.
+  const ranked = q ? [...products].sort((a, b) => computeSearchRank(a.name, q) - computeSearchRank(b.name, q)) : products;
+
   return NextResponse.json({
-    products: products.map((p) => ({
+    products: ranked.map((p) => ({
       id: p.id,
       slug: p.slug,
       name: p.name,

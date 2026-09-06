@@ -256,6 +256,37 @@ model RateLimitHit {
 }
 
 // ---------------------------------------------------------------------------
+// Multi-city
+// ---------------------------------------------------------------------------
+
+// Reference data only — Store.city/Location.city stay the free-text strings
+// they've always been (every existing query, the seed data, and discovery
+// filters keep working unmodified). cityId FKs below are nullable and purely
+// additive, giving new code a real relation to build on without a
+// destructive backfill-or-break migration. isActive gates which cities
+// actually accept new sellers/orders vs. exist as a placeholder for later.
+model City {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  state     String
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  areas     Area[]
+  stores    Store[]
+  locations Location[]
+}
+
+model Area {
+  id     String @id @default(cuid())
+  name   String
+  cityId String
+  city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@unique([cityId, name])
+}
+
+// ---------------------------------------------------------------------------
 // Location / Address
 // ---------------------------------------------------------------------------
 
@@ -272,6 +303,8 @@ model Location {
   landmark            String?
   area                String?
   city                String
+  cityId              String?
+  cityRef             City?    @relation(fields: [cityId], references: [id])
   state               String?
   pincode             String?
   country             String   @default("India")
@@ -287,6 +320,7 @@ model Location {
 
   @@index([userId])
   @@index([city])
+  @@index([cityId])
 }
 
 // ---------------------------------------------------------------------------
@@ -376,6 +410,8 @@ model Store {
   addressLine            String?
   area                   String?
   city                   String
+  cityId                 String?
+  cityRef                City?       @relation(fields: [cityId], references: [id])
   state                  String?
   country                String      @default("India")
   latitude               Float?
@@ -412,6 +448,7 @@ model Store {
 
   @@index([status])
   @@index([city])
+  @@index([cityId])
   @@index([categoryId])
 }
 

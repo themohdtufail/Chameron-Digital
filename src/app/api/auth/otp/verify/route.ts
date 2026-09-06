@@ -5,6 +5,7 @@ import { createSession, setSessionCookie } from "@/lib/auth";
 import { otpVerifySchema } from "@/lib/validation";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
 import { enforceRateLimit, clientIp } from "@/lib/rate-limit";
+import { writeAuditLog } from "@/lib/audit";
 
 export const POST = withApiErrors(async (req: NextRequest) => {
   const body = otpVerifySchema.parse(await req.json());
@@ -48,6 +49,14 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     ip: req.headers.get("x-forwarded-for"),
   });
   await setSessionCookie(token);
+
+  await writeAuditLog({
+    actorId: user.id,
+    action: "LOGIN",
+    entityType: "User",
+    entityId: user.id,
+    metadata: { role: user.role, ip: clientIp(req) },
+  });
 
   return NextResponse.json({
     user: {

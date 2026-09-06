@@ -2,6 +2,8 @@
 
 Every route lives under `src/app/api/**`, is wrapped in `withApiErrors` (consistent JSON error shape, the Origin/CSRF check, and rate-limit error mapping — see the [Security](../README.md#security) section of the README), validates its input with Zod, and enforces auth with `requireUser()`/`requireRole()`. A future native app, partner integration, or bot can reuse these endpoints as-is — the web app is just one client of this API.
 
+Every response also carries a baseline set of security headers (`next.config.mjs`'s `headers()`): `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Strict-Transport-Security`, a `Permissions-Policy` denying camera/microphone, and a `Content-Security-Policy` (permissive enough not to break Next's own hydration scripts — a stricter nonce-based `script-src` is a documented future hardening step, not a blocker).
+
 Auth: **cookie** = the `cd_session` JWT cookie set by login; role in brackets is the minimum role required (`BUYER`/`SELLER`/`ADMIN`/`DELIVERY_PARTNER`), "any" means any authenticated role, "public" means no auth required.
 
 ## Auth
@@ -19,10 +21,11 @@ Auth: **cookie** = the `cd_session` JWT cookie set by login; role in brackets is
 | Method & path | Auth | Notes |
 |---|---|---|
 | `GET /api/categories` | public | Global business categories. |
-| `GET /api/stores` | public | Discovery feed — `q`, `category`, `city`, `lat`/`lng`, `sort` (`recommended`/`nearest`/`top-rated`), `openNow`, `minRating`, `maxDistanceKm`, `page`. Paginated. |
+| `GET /api/stores` | public | Discovery feed — `q`, `category`, `city`, `lat`/`lng`, `sort` (`recommended`/`nearest`/`top-rated`), `openNow`, `minRating`, `maxDistanceKm`, `page`. Paginated. A `q` search ranks by match quality first (`src/lib/search.ts`'s `computeSearchRank()` — exact match, then starts-with, then whole-word, then plain substring), with the chosen `sort` only breaking ties within the same rank; also fire-and-forget logs an `AnalyticsEvent` of `type: "search"` (page 1 only) as the substrate for a future recent/popular-searches feature. |
 | `GET /api/stores/[slug]` | public | Store detail + its visible product categories + products. |
-| `GET /api/products` | public | Filterable product list (`storeId`, `categoryId`, `q`). |
+| `GET /api/products` | public | Filterable product list (`storeId`, `categoryId`, `q`) — same match-quality ranking as `/api/stores` when `q` is present. |
 | `GET /api/products/[id]` | public | Single product by id (buyer pages route by slug; this backs id-based lookups). |
+| `GET /api/cities` | public | Active cities only (with their `areas`), the buyer-facing city picker's data source. |
 
 ## Cart & checkout
 
@@ -183,6 +186,10 @@ A `DELIVERY_PARTNER` account follows the same OTP-login + approval-gate pattern 
 | `GET /api/admin/stats` | ADMIN | Platform overview tiles. |
 | `GET /api/admin/payments` `?status=` | ADMIN | Every payment platform-wide, with its order/store/buyer. |
 | `GET /api/admin/reports` | ADMIN | 30-day revenue/commission/order totals + daily series, active-seller/buyer/delivery-partner counts, open-ticket count, active-subscription breakdown by plan, and top 5 stores by revenue — the consolidated cross-milestone reports overview. |
+| `GET/POST /api/admin/cities` `PATCH /api/admin/cities/[id]` | ADMIN | List every city (active + inactive placeholders) with its `areas` and store count; create one (starts inactive); PATCH `{ isActive }` to launch/pause it. Writes an `AuditLog` row. |
+| `POST /api/admin/cities/[id]/areas` | ADMIN | Add an area to a city. |
+
+Login (`POST /api/auth/otp/verify`, `POST /api/auth/admin-login`) and logout (`POST /api/auth/logout`) now write `AuditLog` rows too (`LOGIN`/`LOGIN_FAILED`/`LOGOUT`), closing the "no audit coverage for auth events" gap called out in the architecture audit.
 
 ## Refunds & seller payouts
 

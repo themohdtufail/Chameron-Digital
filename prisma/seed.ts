@@ -36,6 +36,34 @@ async function main() {
     categories[c.name] = category;
   }
 
+  // ---- Cities ------------------------------------------------------------
+  // Jammu is the only active launch city; the rest are inactive placeholders
+  // proving the multi-city architecture works without hardcoding Jammu
+  // throughout the app (see decision #11 in the Phase 3 plan).
+  const jammu = await prisma.city.upsert({
+    where: { name: "Jammu" },
+    update: {},
+    create: { name: "Jammu", state: "Jammu and Kashmir", isActive: true },
+  });
+  for (const areaName of ["Residency Road", "Bahu Plaza", "Trikuta Nagar", "Gandhi Nagar"]) {
+    await prisma.area.upsert({
+      where: { cityId_name: { cityId: jammu.id, name: areaName } },
+      update: {},
+      create: { cityId: jammu.id, name: areaName },
+    });
+  }
+  for (const placeholder of [
+    { name: "Delhi", state: "Delhi" },
+    { name: "Mumbai", state: "Maharashtra" },
+    { name: "Bangalore", state: "Karnataka" },
+  ]) {
+    await prisma.city.upsert({
+      where: { name: placeholder.name },
+      update: {},
+      create: { name: placeholder.name, state: placeholder.state, isActive: false },
+    });
+  }
+
   // ---- Admin ------------------------------------------------------------
   const adminPhone = process.env.ADMIN_PHONE || "+911234567890";
   const adminPassword = process.env.ADMIN_PASSWORD || "ChameronAdmin@123";
@@ -59,12 +87,13 @@ async function main() {
   await prisma.cart.upsert({ where: { userId: buyer.id }, update: {}, create: { userId: buyer.id } });
   await prisma.location.upsert({
     where: { id: `${buyer.id}-home` },
-    update: {},
+    update: { cityId: jammu.id },
     create: {
       id: `${buyer.id}-home`,
       userId: buyer.id,
       label: "Current",
       city: "Jammu",
+      cityId: jammu.id,
       area: "Gandhi Nagar",
       state: "Jammu and Kashmir",
       isCurrent: true,
@@ -81,7 +110,7 @@ async function main() {
 
   const store1 = await prisma.store.upsert({
     where: { ownerId: seller1.id },
-    update: {},
+    update: { cityId: jammu.id },
     create: {
       ownerId: seller1.id,
       name: "Jafson Jammu",
@@ -95,6 +124,7 @@ async function main() {
       addressLine: "Shop 12, Residency Road",
       area: "Gandhi Nagar",
       city: "Jammu",
+      cityId: jammu.id,
       state: "Jammu and Kashmir",
       latitude: 32.7266,
       longitude: 74.857,
@@ -160,7 +190,7 @@ async function main() {
 
   const store2 = await prisma.store.upsert({
     where: { ownerId: seller2.id },
-    update: {},
+    update: { cityId: jammu.id },
     create: {
       ownerId: seller2.id,
       name: "Spice Junction",
@@ -173,6 +203,7 @@ async function main() {
       addressLine: "14 Bahu Plaza",
       area: "Bahu Plaza",
       city: "Jammu",
+      cityId: jammu.id,
       state: "Jammu and Kashmir",
       latitude: 32.719,
       longitude: 74.864,
@@ -226,7 +257,7 @@ async function main() {
   });
   const store3 = await prisma.store.upsert({
     where: { ownerId: seller3.id },
-    update: {},
+    update: { cityId: jammu.id },
     create: {
       ownerId: seller3.id,
       name: "TechHub Electronics",
@@ -237,6 +268,7 @@ async function main() {
       addressLine: "Shop 3, Trikuta Nagar",
       area: "Trikuta Nagar",
       city: "Jammu",
+      cityId: jammu.id,
       state: "Jammu and Kashmir",
       status: "PENDING",
     },
