@@ -193,10 +193,12 @@ The app is a standard Next.js application and deploys cleanly to any Node host. 
 
 1. Push this repo to GitHub.
 2. Create a Postgres database (Vercel Postgres, Neon, Supabase, or RDS all work) and copy its connection string.
-3. Import the repo into Vercel, set the environment variables from `.env.example` (in particular `DATABASE_URL`, `JWT_SECRET`, `ADMIN_PHONE`, `ADMIN_PASSWORD`) in the Vercel project settings, and deploy.
-4. Run the migration once against the production database: `DATABASE_URL=... npx prisma migrate deploy`.
-5. (Recommended) run `npm run db:seed` once to create the admin account and categories — or create them manually via Prisma Studio.
+3. Import the repo into Vercel and set the environment variables from `.env.example` (in particular `DATABASE_URL`, `JWT_SECRET`, `ADMIN_PHONE`, `ADMIN_PASSWORD`) in the Vercel project settings **before** the first deploy.
+4. Deploy. The `build` script runs `prisma migrate deploy` automatically, so the schema is created as part of the build — no manual migration step needed.
+5. Seed demo data once, from any machine with normal internet access (not required, but useful to get the admin account and categories in place): `DATABASE_URL=<your connection string> npm run db:seed`.
 6. Set `STORAGE_DRIVER=s3` and fill in the `S3_*` variables (see below) — a serverless deployment has no persistent disk, so the `local` storage driver **must not** be used in production.
+
+> **Deploying from a non-default branch (e.g. reviewing a PR before merging):** Vercel only auto-builds branches that received a push *after* the GitHub integration was connected. If you import the repo while a branch/PR already exists, its first Preview deployment won't appear until either (a) you push a new commit to that branch, or (b) you change the project's **Production Branch** in Vercel's Git settings to point at it directly.
 
 ### Any Docker/VM host
 
