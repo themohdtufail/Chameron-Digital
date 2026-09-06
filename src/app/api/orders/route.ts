@@ -7,6 +7,7 @@ import { generateOrderNumber, formatCurrency } from "@/lib/utils";
 import { computeUnitPrice, computeCartTotals } from "@/lib/pricing";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { createNotification, notifyLowStockIfCrossed } from "@/lib/notify";
+import { getPaymentGateway } from "@/lib/payment-gateway";
 
 const checkoutSchema = z.object({
   addressId: z.string(),
@@ -33,10 +34,6 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   const body = checkoutSchema.parse(await req.json());
 
   await enforceRateLimit(user.id, "order_create", { windowSeconds: 60 * 60, max: 20 });
-
-  if (body.paymentMethod === "ONLINE") {
-    return jsonError("Online payment is coming soon. Please choose Cash on Delivery.", 400);
-  }
 
   const address = await prisma.location.findFirst({ where: { id: body.addressId, userId: user.id } });
   if (!address) return jsonError("Delivery address not found", 404);
@@ -115,6 +112,21 @@ export const POST = withApiErrors(async (req: NextRequest) => {
         include: { items: true },
       });
 
+      let gatewayRef: string | null = null;
+      if (body.paymentMethod === "ONLINE") {
+        const intent = await getPaymentGateway().createIntent(created.id, total);
+        gatewayRef = intent.gatewayRef;
+      }
+      await tx.payment.create({
+        data: {
+          orderId: created.id,
+          method: body.paymentMethod,
+          amount: total,
+          gateway: body.paymentMethod === "ONLINE" ? "mock" : null,
+          gatewayRef,
+        },
+      });
+
       for (const item of cartItems) {
         if (!item.product.trackInventory) continue;
 
@@ -149,7 +161,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
 
       await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
 
-      return created;
+      return tx.order.findUniqueOrThrow({ where: { id: created.id }, include: { items: true, payment: true } });
     });
   } catch (err) {
     if (err instanceof OutOfStockError) {

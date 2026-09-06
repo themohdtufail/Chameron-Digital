@@ -43,6 +43,7 @@ export default function CheckoutPage() {
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [notes, setNotes] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"COD" | "ONLINE">("COD");
   const [cartTotal, setCartTotal] = useState<{ subtotal: number; deliveryFee: number; total: number } | null>(null);
 
   const [newAddress, setNewAddress] = useState(emptyAddressForm);
@@ -114,7 +115,7 @@ export default function CheckoutPage() {
           customerName: address?.fullName || newAddress.fullName,
           customerPhone: address?.phone || newAddress.phone,
           notes: notes || undefined,
-          paymentMethod: "COD",
+          paymentMethod,
         }),
       });
       const data = await res.json();
@@ -262,16 +263,34 @@ export default function CheckoutPage() {
         <section>
           <h2 className="mb-3 text-sm font-bold text-zinc-900">Payment method</h2>
           <div className="space-y-2">
-            <div className="flex items-center gap-3 rounded-xl border border-brand-500 bg-brand-50 p-3">
-              <Wallet className="h-4 w-4 text-brand-600" />
+            <button
+              type="button"
+              onClick={() => setPaymentMethod("COD")}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-xl border p-3 text-left transition",
+                paymentMethod === "COD" ? "border-brand-500 bg-brand-50" : "border-zinc-200 hover:bg-zinc-50"
+              )}
+            >
+              <Wallet className={cn("h-4 w-4", paymentMethod === "COD" ? "text-brand-600" : "text-zinc-400")} />
               <span className="flex-1 text-sm font-semibold text-zinc-900">Cash on Delivery</span>
-              <Check className="h-4 w-4 text-brand-600" />
-            </div>
-            <div className="flex items-center gap-3 rounded-xl border border-zinc-200 p-3 opacity-50">
-              <CreditCard className="h-4 w-4 text-zinc-400" />
-              <span className="flex-1 text-sm font-semibold text-zinc-500">Online payment</span>
-              <span className="text-[11px] font-semibold text-zinc-400">Coming soon</span>
-            </div>
+              {paymentMethod === "COD" && <Check className="h-4 w-4 text-brand-600" />}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaymentMethod("ONLINE")}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-xl border p-3 text-left transition",
+                paymentMethod === "ONLINE" ? "border-brand-500 bg-brand-50" : "border-zinc-200 hover:bg-zinc-50"
+              )}
+            >
+              <CreditCard className={cn("h-4 w-4", paymentMethod === "ONLINE" ? "text-brand-600" : "text-zinc-400")} />
+              <span className="flex-1 text-sm font-semibold text-zinc-900">Pay online</span>
+              {paymentMethod === "ONLINE" ? (
+                <Check className="h-4 w-4 text-brand-600" />
+              ) : (
+                <span className="text-[11px] font-semibold text-zinc-400">UPI / Card / Wallet</span>
+              )}
+            </button>
           </div>
         </section>
 

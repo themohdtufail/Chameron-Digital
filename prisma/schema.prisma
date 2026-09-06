@@ -53,8 +53,12 @@ enum PaymentMethod {
   ONLINE
 }
 
+// PAID is the "payment succeeded" terminal state (kept as-is rather than
+// renamed to SUCCESS so existing rows/queries stay valid); PROCESSING is an
+// additive in-flight state for gateway-driven (ONLINE) payments.
 enum PaymentStatus {
   PENDING
+  PROCESSING
   PAID
   FAILED
   REFUNDED
@@ -469,12 +473,18 @@ model Payment {
   method        PaymentMethod
   status        PaymentStatus @default(PENDING)
   amount        Float
+  currency      String        @default("INR")
+  // null for COD; "mock" for the sandbox simulator; "razorpay"/"stripe" etc.
+  // once a real gateway is wired up — see src/lib/payment-gateway.ts.
+  gateway       String?
   gatewayRef    String?
   failureReason String?
   paidAt        DateTime?
   refundedAt    DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+
+  @@index([status])
 }
 
 // ---------------------------------------------------------------------------

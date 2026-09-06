@@ -35,7 +35,15 @@ Auth: **cookie** = the `cd_session` JWT cookie set by login; role in brackets is
 | `GET /api/orders` | BUYER | The buyer's own orders. |
 | `POST /api/orders` | BUYER | Places an order from the cart. Rate-limited. Stock is decremented with a concurrency-safe conditional update (`stock >= qty` in the `WHERE` clause) inside the order transaction; notifies the seller (new order) and the buyer (order placed), and the seller again if stock crosses low/out. |
 | `GET /api/orders/[id]` | buyer/seller owner or ADMIN | Order detail. |
-| `PATCH /api/orders/[id]` | buyer/seller owner or ADMIN | Status transition. Body: `{ status, reason? }`. Validated by the pure `canTransition()` state machine (`src/lib/order-status.ts`) — buyer can only move to `CANCELLED` (through `PENDING`/`CONFIRMED`); seller/admin drive the forward pipeline and `REJECTED`. Cancel/reject restores stock (`InventoryLog`, reason `RETURN`), writes an `AuditLog` row, and notifies the other party. |
+| `PATCH /api/orders/[id]` | buyer/seller owner or ADMIN | Status transition. Body: `{ status, reason? }`. Validated by the pure `canTransition()` state machine (`src/lib/order-status.ts`) — buyer can only move to `CANCELLED` (through `PENDING`/`CONFIRMED`); seller/admin drive the forward pipeline and `REJECTED`. Cancel/reject restores stock (`InventoryLog`, reason `RETURN`), writes an `AuditLog` row, and notifies the other party. A COD order's `Payment` is marked `PAID` automatically when it reaches `DELIVERED`. |
+
+## Payments
+
+Every order gets a `Payment` row at creation (`src/lib/payment-gateway.ts` — a swappable `PaymentGateway` seam, `MockPaymentGateway` by default since no real gateway credentials exist yet). COD payments settle to `PAID` when the order is marked `DELIVERED`; ONLINE payments settle through the confirm endpoint below.
+
+| Method & path | Auth | Notes |
+|---|---|---|
+| `POST /api/payments/[id]/confirm` | buyer owner or ADMIN | Resolves an ONLINE payment's outcome via the configured gateway. Idempotent — a payment already `PAID`/`FAILED`/`REFUNDED` is returned as-is rather than re-processed; the actual DB transition uses a conditional `updateMany` guard (only `PENDING`/`PROCESSING` rows transition) to close the double-submit/duplicate-callback race. Body: `{ simulate?: "SUCCESS"\|"FAILED"\|"CANCELLED"\|"TIMEOUT" }` — a dev/sandbox-only hint the mock gateway honors so the checkout UI can exercise every outcome; a real gateway would ignore it and resolve the outcome from its own server-side state. Writes an `AuditLog` row on every transition. Rate-limited. |
 
 ## Reviews, wishlist, product requests (buyer)
 

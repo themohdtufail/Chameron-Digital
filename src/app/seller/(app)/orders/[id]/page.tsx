@@ -80,9 +80,22 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
               <span>{formatCurrency(order.total)}</span>
             </div>
           </div>
-          <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-            Payment: {order.paymentMethod === "COD" ? "Cash on Delivery" : "Online"}
-          </p>
+          <div className="mt-3 flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+              Payment: {order.paymentMethod === "COD" ? "Cash on Delivery" : "Online"}
+            </p>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                order.paymentStatus === "PAID"
+                  ? "bg-emerald-100 text-emerald-700"
+                  : order.paymentStatus === "FAILED"
+                    ? "bg-danger-50 text-danger-600"
+                    : "bg-zinc-100 text-zinc-600"
+              }`}
+            >
+              {order.paymentStatus}
+            </span>
+          </div>
         </section>
 
         <div className="hidden lg:block">

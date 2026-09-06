@@ -55,7 +55,7 @@ export const PATCH = withApiErrors(async (req: NextRequest, { params }: { params
 
   const order = await prisma.order.findUnique({
     where: { id: params.id },
-    include: { store: { select: { ownerId: true, name: true } }, items: true },
+    include: { store: { select: { ownerId: true, name: true } }, items: true, payment: true },
   });
   if (!order) return jsonError("Order not found", 404);
 
@@ -113,6 +113,16 @@ export const PATCH = withApiErrors(async (req: NextRequest, { params }: { params
           metadata: reason ? { reason } : undefined,
         },
       });
+    }
+
+    // COD is "paid" on successful delivery — reconciled here rather than at
+    // order creation, matching real cash-on-delivery settlement.
+    if (status === "DELIVERED" && order.paymentMethod === "COD" && order.payment?.status === "PENDING") {
+      await tx.payment.update({
+        where: { id: order.payment.id },
+        data: { status: "PAID", paidAt: new Date() },
+      });
+      return tx.order.update({ where: { id: order.id }, data: { paymentStatus: "PAID" } });
     }
 
     return result;

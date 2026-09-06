@@ -8,6 +8,7 @@ import { CancelOrderButton } from "@/components/buyer/CancelOrderButton";
 import { ReviewForm } from "@/components/buyer/ReviewForm";
 import { ReorderButton } from "@/components/buyer/ReorderButton";
 import { ContactStoreButtons } from "@/components/buyer/ContactStoreButtons";
+import { PaymentActions } from "@/components/buyer/PaymentActions";
 import { formatCurrency } from "@/lib/utils";
 
 const CANCELLABLE = ["PENDING", "CONFIRMED"];
@@ -19,7 +20,7 @@ export default async function BuyerOrderDetailPage({ params }: { params: { id: s
   const user = await getCurrentUser();
   const order = await prisma.order.findFirst({
     where: { id: params.id, buyerId: user!.id },
-    include: { items: true, store: { select: { name: true, logoUrl: true, phone: true, slug: true } } },
+    include: { items: true, payment: true, store: { select: { name: true, logoUrl: true, phone: true, slug: true } } },
   });
 
   if (!order) notFound();
@@ -95,10 +96,27 @@ export default async function BuyerOrderDetailPage({ params }: { params: { id: s
             {order.customerName} · {order.customerPhone}
           </p>
           {order.notes && <p className="mt-2 text-xs text-zinc-400">Note: {order.notes}</p>}
-          <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-            Payment: {order.paymentMethod === "COD" ? "Cash on Delivery" : "Online"}
-          </p>
         </section>
+
+        <section className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-card">
+          <h2 className="mb-2 text-sm font-bold text-zinc-900">Payment</h2>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-zinc-500">{order.paymentMethod === "COD" ? "Cash on Delivery" : "Online payment"}</span>
+            <PaymentStatusPill status={order.payment?.status ?? order.paymentStatus} />
+          </div>
+          {order.payment?.status === "FAILED" && order.payment.failureReason && (
+            <p className="mt-2 text-xs text-danger-600">{order.payment.failureReason}</p>
+          )}
+          {order.payment?.paidAt && (
+            <p className="mt-2 text-xs text-zinc-400">Paid on {new Date(order.payment.paidAt).toLocaleString()}</p>
+          )}
+        </section>
+
+        {order.paymentMethod === "ONLINE" &&
+          order.payment &&
+          (order.payment.status === "PENDING" || order.payment.status === "PROCESSING") && (
+            <PaymentActions paymentId={order.payment.id} />
+          )}
 
         <ContactStoreButtons phone={order.store.phone} storeName={order.store.name} orderNumber={order.orderNumber} />
 
@@ -111,5 +129,29 @@ export default async function BuyerOrderDetailPage({ params }: { params: { id: s
         {order.status === "DELIVERED" && !existingReview && <ReviewForm orderId={order.id} />}
       </div>
     </div>
+  );
+}
+
+const PAYMENT_STATUS_STYLES: Record<string, string> = {
+  PENDING: "bg-zinc-100 text-zinc-600",
+  PROCESSING: "bg-amber-100 text-amber-700",
+  PAID: "bg-emerald-100 text-emerald-700",
+  FAILED: "bg-danger-50 text-danger-600",
+  REFUNDED: "bg-zinc-100 text-zinc-600",
+};
+
+const PAYMENT_STATUS_LABEL: Record<string, string> = {
+  PENDING: "Pending",
+  PROCESSING: "Processing",
+  PAID: "Paid",
+  FAILED: "Failed",
+  REFUNDED: "Refunded",
+};
+
+function PaymentStatusPill({ status }: { status: string }) {
+  return (
+    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${PAYMENT_STATUS_STYLES[status] ?? "bg-zinc-100 text-zinc-600"}`}>
+      {PAYMENT_STATUS_LABEL[status] ?? status}
+    </span>
   );
 }
