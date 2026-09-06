@@ -111,6 +111,10 @@ export const productRequestSchema = z.object({
   note: z.string().trim().max(300).optional(),
 });
 
+export const productRequestDecisionSchema = z.object({
+  decision: z.enum(["ACCEPTED", "DECLINED"]),
+});
+
 export const productRequestRespondSchema = z.object({
   sellerAvailable: z.boolean(),
   sellerPrice: z.number().positive().nullable().optional(),

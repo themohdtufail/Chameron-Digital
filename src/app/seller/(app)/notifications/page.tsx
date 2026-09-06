@@ -8,7 +8,7 @@ export default function SellerNotificationsPage() {
       <div className="mx-auto max-w-3xl">
         <h1 className="mb-4 text-xl font-extrabold text-zinc-900 lg:text-2xl">Notifications</h1>
         <div className="rounded-2xl border border-zinc-100 bg-white shadow-card">
-          <NotificationList orderHrefPrefix="/seller/orders" />
+          <NotificationList orderHrefPrefix="/seller/orders" productRequestHref="/seller/requests" />
         </div>
       </div>
     </div>

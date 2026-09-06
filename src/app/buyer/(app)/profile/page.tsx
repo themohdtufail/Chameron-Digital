@@ -1,4 +1,4 @@
-import { User, MapPin, Phone, Mail, Store, ShieldCheck, Heart, Bell } from "lucide-react";
+import { User, MapPin, Phone, Mail, Store, ShieldCheck, Heart, Bell, Inbox } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { LogoutButton } from "@/components/LogoutButton";
@@ -50,20 +50,27 @@ export default async function BuyerProfilePage() {
         )}
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 lg:hidden">
+      <div className="mt-4 grid grid-cols-3 gap-3">
         <Link
           href="/buyer/wishlist"
-          className="flex items-center gap-2 rounded-2xl border border-zinc-100 bg-white p-4 shadow-card"
+          className="flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-100 bg-white p-4 text-center shadow-card"
         >
           <Heart className="h-4 w-4 text-danger-500" />
-          <span className="text-sm font-semibold text-zinc-800">Wishlist</span>
+          <span className="text-xs font-semibold text-zinc-800">Wishlist</span>
         </Link>
         <Link
           href="/buyer/notifications"
-          className="flex items-center gap-2 rounded-2xl border border-zinc-100 bg-white p-4 shadow-card"
+          className="flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-100 bg-white p-4 text-center shadow-card"
         >
           <Bell className="h-4 w-4 text-brand-600" />
-          <span className="text-sm font-semibold text-zinc-800">Notifications</span>
+          <span className="text-xs font-semibold text-zinc-800">Notifications</span>
+        </Link>
+        <Link
+          href="/buyer/requests"
+          className="flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-100 bg-white p-4 text-center shadow-card"
+        >
+          <Inbox className="h-4 w-4 text-accent-600" />
+          <span className="text-xs font-semibold text-zinc-800">My Requests</span>
         </Link>
       </div>
 

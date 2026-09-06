@@ -16,7 +16,7 @@ export default function BuyerNotificationsPage() {
         </div>
       </div>
       <div className="mx-auto max-w-2xl lg:px-8">
-        <NotificationList orderHrefPrefix="/buyer/order" />
+        <NotificationList orderHrefPrefix="/buyer/order" productRequestHref="/buyer/requests" />
       </div>
     </div>
   );

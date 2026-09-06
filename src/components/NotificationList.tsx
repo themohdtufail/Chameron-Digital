@@ -13,6 +13,7 @@ interface NotificationItem {
   body: string;
   isRead: boolean;
   relatedOrderId: string | null;
+  relatedProductRequestId: string | null;
   createdAt: string;
 }
 
@@ -26,7 +27,13 @@ function timeAgo(iso: string) {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-export function NotificationList({ orderHrefPrefix }: { orderHrefPrefix: string }) {
+export function NotificationList({
+  orderHrefPrefix,
+  productRequestHref,
+}: {
+  orderHrefPrefix: string;
+  productRequestHref?: string;
+}) {
   const [notifications, setNotifications] = useState<NotificationItem[] | null>(null);
 
   async function load() {
@@ -107,6 +114,14 @@ export function NotificationList({ orderHrefPrefix }: { orderHrefPrefix: string 
                 onClick={() => !n.isRead && markRead(n.id)}
                 className="block"
               >
+                {content}
+              </a>
+            );
+          }
+
+          if (n.relatedProductRequestId && productRequestHref) {
+            return (
+              <a key={n.id} href={productRequestHref} onClick={() => !n.isRead && markRead(n.id)} className="block">
                 {content}
               </a>
             );
