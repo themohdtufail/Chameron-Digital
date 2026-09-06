@@ -112,15 +112,18 @@ export default function CheckoutPage() {
   if (loading) return <div className="p-6 text-center text-sm text-zinc-400">Loading checkout…</div>;
 
   return (
-    <div className="animate-fade-in pb-32">
-      <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-zinc-100 bg-white/95 px-4 py-4 backdrop-blur">
-        <Link href="/buyer/cart">
-          <ArrowLeft className="h-5 w-5 text-zinc-700" />
-        </Link>
-        <h1 className="text-lg font-extrabold text-zinc-900">Checkout</h1>
+    <div className="animate-fade-in pb-32 lg:pb-16">
+      <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-zinc-100 bg-white/95 px-4 py-4 backdrop-blur lg:static lg:border-0 lg:bg-transparent lg:px-0 lg:pt-8 lg:backdrop-blur-none">
+        <div className="page-container flex items-center gap-3 lg:px-8">
+          <Link href="/buyer/cart">
+            <ArrowLeft className="h-5 w-5 text-zinc-700" />
+          </Link>
+          <h1 className="text-lg font-extrabold text-zinc-900 lg:text-2xl">Checkout</h1>
+        </div>
       </div>
 
-      <div className="space-y-6 px-4 py-5">
+      <div className="page-container lg:grid lg:grid-cols-3 lg:items-start lg:gap-8 lg:px-8 lg:py-6">
+      <div className="space-y-6 px-4 py-5 lg:col-span-2 lg:px-0 lg:py-0">
         <section>
           <h2 className="mb-3 text-sm font-bold text-zinc-900">Customer details</h2>
           <div className="space-y-3">
@@ -225,7 +228,7 @@ export default function CheckoutPage() {
         </section>
 
         {cartTotal && (
-          <section className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-card">
+          <section className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-card lg:hidden">
             <Row label="Subtotal" value={formatCurrency(cartTotal.subtotal)} />
             <Row label="Delivery charge" value={cartTotal.deliveryFee ? formatCurrency(cartTotal.deliveryFee) : "Free"} />
             <div className="my-1 border-t border-dashed border-zinc-200" />
@@ -234,7 +237,22 @@ export default function CheckoutPage() {
         )}
       </div>
 
-      <div className="app-shell fixed inset-x-0 bottom-0 z-40 border-t border-zinc-100 bg-white p-4">
+      {cartTotal && (
+        <div className="hidden lg:sticky lg:top-8 lg:col-span-1 lg:block">
+          <div className="space-y-2 rounded-2xl border border-zinc-100 bg-white p-4 shadow-card">
+            <Row label="Subtotal" value={formatCurrency(cartTotal.subtotal)} />
+            <Row label="Delivery charge" value={cartTotal.deliveryFee ? formatCurrency(cartTotal.deliveryFee) : "Free"} />
+            <div className="my-1 border-t border-dashed border-zinc-200" />
+            <Row label="Total" value={formatCurrency(cartTotal.total)} bold />
+            <Button size="lg" fullWidth loading={placing} onClick={placeOrder} className="mt-3">
+              Place order
+            </Button>
+          </div>
+        </div>
+      )}
+      </div>
+
+      <div className="action-bar fixed inset-x-0 bottom-0 z-40 border-t border-zinc-100 p-4 lg:hidden">
         <Button size="lg" fullWidth loading={placing} onClick={placeOrder}>
           Place order
         </Button>

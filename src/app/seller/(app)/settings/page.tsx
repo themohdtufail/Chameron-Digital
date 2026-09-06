@@ -89,12 +89,13 @@ export default function SellerSettingsPage() {
   if (loading) return <div className="p-6 text-center text-sm text-zinc-400">Loading settings…</div>;
 
   return (
-    <div className="animate-fade-in px-4 py-5">
+    <div className="animate-fade-in px-4 py-5 lg:px-10 lg:py-8">
+      <div className="mx-auto max-w-3xl">
       <div className="mb-5 flex items-center gap-3">
         <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-zinc-100">
           <SettingsIcon className="h-5 w-5 text-zinc-600" />
         </div>
-        <h1 className="text-lg font-extrabold text-zinc-900">Store settings</h1>
+        <h1 className="text-lg font-extrabold text-zinc-900 lg:text-2xl">Store settings</h1>
       </div>
 
       <div className="space-y-4">
@@ -170,6 +171,7 @@ export default function SellerSettingsPage() {
         <div className="pt-4">
           <LogoutButton redirectTo="/seller/login" />
         </div>
+      </div>
       </div>
     </div>
   );

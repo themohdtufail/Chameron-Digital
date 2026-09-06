@@ -14,7 +14,7 @@ export default async function BuyerProfilePage() {
   });
 
   return (
-    <div className="animate-fade-in px-4 py-5">
+    <div className="animate-fade-in mx-auto max-w-2xl px-4 py-5 lg:px-8 lg:py-10">
       <div className="flex items-center gap-3">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50">
           <User className="h-6 w-6 text-brand-600" />

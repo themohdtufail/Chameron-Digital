@@ -40,57 +40,59 @@ export default async function SellerDashboardPage() {
   ];
 
   return (
-    <div className="animate-fade-in px-4 py-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-zinc-500">Welcome back,</p>
-          <h1 className="text-xl font-extrabold text-zinc-900">{store.name}</h1>
+    <div className="animate-fade-in px-4 py-5 lg:px-10 lg:py-8">
+      <div className="mx-auto max-w-5xl">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-zinc-500">Welcome back,</p>
+            <h1 className="text-xl font-extrabold text-zinc-900 lg:text-2xl">{store.name}</h1>
+          </div>
+          <StoreOpenToggle isManuallyClosed={store.isManuallyClosed} />
         </div>
-        <StoreOpenToggle isManuallyClosed={store.isManuallyClosed} />
-      </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-3">
-        {cards.map((c) => (
-          <div key={c.label} className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-card">
-            <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${c.tone}`}>
-              <c.icon className="h-[18px] w-[18px]" />
+        <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-5">
+          {cards.map((c) => (
+            <div key={c.label} className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-card lg:p-5">
+              <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${c.tone}`}>
+                <c.icon className="h-[18px] w-[18px]" />
+              </div>
+              <p className="mt-3 text-lg font-extrabold text-zinc-900 lg:text-2xl">{c.value}</p>
+              <p className="text-xs text-zinc-500">{c.label}</p>
             </div>
-            <p className="mt-3 text-lg font-extrabold text-zinc-900">{c.value}</p>
-            <p className="text-xs text-zinc-500">{c.label}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-6">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-bold text-zinc-900">Recent orders</h2>
-          <Link href="/seller/orders" className="flex items-center gap-0.5 text-xs font-semibold text-brand-600">
-            View all <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
+          ))}
         </div>
-        {recentOrders.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-zinc-200 py-8 text-center text-sm text-zinc-400">
-            No orders yet. Share your store link to get your first sale!
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {recentOrders.map((order) => (
-              <Link
-                key={order.id}
-                href={`/seller/orders/${order.id}`}
-                className="flex items-center justify-between rounded-xl border border-zinc-100 bg-white p-3 shadow-card"
-              >
-                <div>
-                  <p className="text-sm font-semibold text-zinc-900">{order.orderNumber}</p>
-                  <p className="text-xs text-zinc-500">
-                    {order.items.length} item{order.items.length > 1 ? "s" : ""} · {formatCurrency(order.total)}
-                  </p>
-                </div>
-                <OrderStatusBadge status={order.status as OrderStatusValue} />
-              </Link>
-            ))}
+
+        <div className="mt-6 lg:mt-8">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-bold text-zinc-900 lg:text-base">Recent orders</h2>
+            <Link href="/seller/orders" className="flex items-center gap-0.5 text-xs font-semibold text-brand-600">
+              View all <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
           </div>
-        )}
+          {recentOrders.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-zinc-200 py-8 text-center text-sm text-zinc-400">
+              No orders yet. Share your store link to get your first sale!
+            </p>
+          ) : (
+            <div className="grid gap-2 lg:grid-cols-2 lg:gap-3">
+              {recentOrders.map((order) => (
+                <Link
+                  key={order.id}
+                  href={`/seller/orders/${order.id}`}
+                  className="flex items-center justify-between rounded-xl border border-zinc-100 bg-white p-3 shadow-card"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-zinc-900">{order.orderNumber}</p>
+                    <p className="text-xs text-zinc-500">
+                      {order.items.length} item{order.items.length > 1 ? "s" : ""} · {formatCurrency(order.total)}
+                    </p>
+                  </div>
+                  <OrderStatusBadge status={order.status as OrderStatusValue} />
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

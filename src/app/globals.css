@@ -42,10 +42,22 @@ body {
   }
 
   .app-shell {
-    @apply mx-auto min-h-dvh w-full max-w-[480px] bg-white shadow-elevated;
+    @apply mx-auto min-h-dvh w-full max-w-[480px] bg-white shadow-elevated lg:max-w-full lg:shadow-none;
   }
 
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Desktop content container used inside the app-shell for buyer/seller pages */
+  .page-container {
+    @apply mx-auto w-full max-w-[480px] px-0 lg:max-w-7xl lg:px-8;
+  }
+
+  /* Fixed mobile-only action bars (add to cart, checkout, etc). Deliberately
+     does NOT use .app-shell — min-h-dvh on a `position: fixed` bar would
+     stretch it to fill the whole viewport instead of hugging its content. */
+  .action-bar {
+    @apply mx-auto w-full max-w-[480px] bg-white;
   }
 }

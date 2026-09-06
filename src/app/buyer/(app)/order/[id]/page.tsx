@@ -26,14 +26,16 @@ export default async function BuyerOrderDetailPage({ params }: { params: { id: s
 
   return (
     <div className="animate-fade-in pb-10">
-      <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-zinc-100 bg-white/95 px-4 py-4 backdrop-blur">
-        <Link href="/buyer/orders">
-          <ArrowLeft className="h-5 w-5 text-zinc-700" />
-        </Link>
-        <h1 className="text-lg font-extrabold text-zinc-900">Order {order.orderNumber}</h1>
+      <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-zinc-100 bg-white/95 px-4 py-4 backdrop-blur lg:static lg:border-0 lg:bg-transparent lg:backdrop-blur-none">
+        <div className="mx-auto flex max-w-2xl items-center gap-3 lg:px-8 lg:pt-4">
+          <Link href="/buyer/orders">
+            <ArrowLeft className="h-5 w-5 text-zinc-700" />
+          </Link>
+          <h1 className="text-lg font-extrabold text-zinc-900 lg:text-2xl">Order {order.orderNumber}</h1>
+        </div>
       </div>
 
-      <div className="space-y-5 px-4 py-5">
+      <div className="mx-auto max-w-2xl space-y-5 px-4 py-5 lg:px-8 lg:py-6">
         {order.status === "PENDING" && (
           <div className="flex flex-col items-center rounded-2xl bg-brand-50 py-6 text-center">
             <CheckCircle2 className="h-8 w-8 text-brand-600" />

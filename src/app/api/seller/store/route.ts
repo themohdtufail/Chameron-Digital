@@ -51,7 +51,9 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     },
   });
 
-  const defaultCategories = ["Men", "Women", "Kids", "Offers"];
+  // Note: "Offers" is intentionally not a default category — it's a built-in
+  // filter tab (any discounted product) shown separately in the store browser.
+  const defaultCategories = ["Men", "Women", "Kids"];
   await prisma.productCategory.createMany({
     data: defaultCategories.map((name) => ({ storeId: store.id, name, slug: slugify(name) })),
   });

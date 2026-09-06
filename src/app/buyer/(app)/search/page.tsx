@@ -46,7 +46,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
 
   return (
     <div className="animate-fade-in">
-      <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-zinc-100 bg-white/95 px-4 pb-3 pt-4 backdrop-blur">
+      <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-zinc-100 bg-white/95 px-4 pb-3 pt-4 backdrop-blur lg:hidden">
         <Link href="/buyer/home">
           <ArrowLeft className="h-5 w-5 text-zinc-600" />
         </Link>
@@ -55,7 +55,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
         </div>
       </div>
 
-      <div className="space-y-6 px-4 py-5">
+      <div className="page-container space-y-6 px-4 py-5 lg:px-8 lg:py-8">
         {!q && (
           <p className="pt-10 text-center text-sm text-zinc-400">Search for stores or products to get started.</p>
         )}
@@ -67,7 +67,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
         {storeSummaries.length > 0 && (
           <section>
             <h2 className="mb-3 text-sm font-bold text-zinc-900">Stores</h2>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-5 xl:grid-cols-5">
               {storeSummaries.map((s) => (
                 <StoreCard key={s.id} store={s} />
               ))}
@@ -78,7 +78,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
         {products.length > 0 && (
           <section>
             <h2 className="mb-3 text-sm font-bold text-zinc-900">Products</h2>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-5 xl:grid-cols-5">
               {products.map((p) => (
                 <ProductCard
                   key={p.id}

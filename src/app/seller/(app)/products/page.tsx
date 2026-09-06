@@ -67,9 +67,10 @@ export default function SellerProductsPage() {
   }
 
   return (
-    <div className="animate-fade-in px-4 py-5">
+    <div className="animate-fade-in px-4 py-5 lg:px-10 lg:py-8">
+      <div className="mx-auto max-w-6xl">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-extrabold text-zinc-900">Products</h1>
+        <h1 className="text-lg font-extrabold text-zinc-900 lg:text-2xl">Products</h1>
         <Link href="/seller/products/new">
           <Button size="sm">
             <Plus className="h-4 w-4" /> Add
@@ -98,7 +99,7 @@ export default function SellerProductsPage() {
       )}
 
       {products && products.length > 0 && (
-        <div className="space-y-3">
+        <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
           {products.map((p) => (
             <div key={p.id} className="flex gap-3 rounded-2xl border border-zinc-100 bg-white p-3 shadow-card">
               <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-zinc-50">
@@ -137,6 +138,7 @@ export default function SellerProductsPage() {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -69,42 +69,45 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
   }
 
   return (
-    <div className="pb-28">
-      <div className="relative aspect-square w-full bg-zinc-50">
-        {product.images.length > 0 ? (
-          <Image src={product.images[activeImage].url} alt={product.name} fill className="object-cover" priority />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <ImageOff className="h-10 w-10 text-zinc-300" />
+    <div className="pb-28 lg:pb-16">
+      <div className="lg:mx-auto lg:grid lg:max-w-6xl lg:grid-cols-2 lg:gap-12 lg:px-8 lg:pt-8">
+        <div className="lg:sticky lg:top-24 lg:h-fit">
+          <div className="relative aspect-square w-full bg-zinc-50 lg:rounded-2xl">
+            {product.images.length > 0 ? (
+              <Image src={product.images[activeImage].url} alt={product.name} fill className="object-cover lg:rounded-2xl" priority />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                <ImageOff className="h-10 w-10 text-zinc-300" />
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      {product.images.length > 1 && (
-        <div className="no-scrollbar flex gap-2 overflow-x-auto px-4 py-3">
-          {product.images.map((img, idx) => (
-            <button
-              key={img.id}
-              onClick={() => setActiveImage(idx)}
-              className={cn(
-                "relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2",
-                idx === activeImage ? "border-brand-600" : "border-transparent"
-              )}
-            >
-              <Image src={img.url} alt="" fill className="object-cover" />
-            </button>
-          ))}
+          {product.images.length > 1 && (
+            <div className="no-scrollbar flex gap-2 overflow-x-auto px-4 py-3 lg:px-0">
+              {product.images.map((img, idx) => (
+                <button
+                  key={img.id}
+                  onClick={() => setActiveImage(idx)}
+                  className={cn(
+                    "relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2",
+                    idx === activeImage ? "border-brand-600" : "border-transparent"
+                  )}
+                >
+                  <Image src={img.url} alt="" fill className="object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+
+          {product.videoUrl && (
+            <div className="px-4 pb-2 lg:px-0">
+              <video src={product.videoUrl} controls className="w-full rounded-xl bg-black" />
+            </div>
+          )}
         </div>
-      )}
 
-      {product.videoUrl && (
-        <div className="px-4 pb-2">
-          <video src={product.videoUrl} controls className="w-full rounded-xl bg-black" />
-        </div>
-      )}
-
-      <div className="px-4 pt-2">
-        <h1 className="text-xl font-extrabold text-zinc-900">{product.name}</h1>
+      <div className="px-4 pt-2 lg:px-0 lg:pt-0">
+        <h1 className="text-xl font-extrabold text-zinc-900 lg:text-2xl">{product.name}</h1>
         <div className="mt-2 flex items-center gap-2">
           <span className="text-2xl font-extrabold text-zinc-900">{formatCurrency(unitPrice)}</span>
           {product.discountPrice && (
@@ -181,9 +184,34 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
             </button>
           </div>
         </div>
+
+        <div className="hidden gap-3 lg:mt-8 lg:flex">
+          <Button
+            variant="outline"
+            size="lg"
+            className="flex-1"
+            disabled={outOfStock}
+            loading={loading === "cart"}
+            onClick={async () => {
+              setLoading("cart");
+              const ok = await addToCart(product.id, { variantId: selectedVariant?.id, quantity });
+              setLoading(null);
+              if (ok) {
+                toast.success("Added to cart");
+                router.refresh();
+              }
+            }}
+          >
+            Add to cart
+          </Button>
+          <Button size="lg" className="flex-1" disabled={outOfStock} loading={loading === "buy"} onClick={handleBuyNow}>
+            Buy now
+          </Button>
+        </div>
+      </div>
       </div>
 
-      <div className="app-shell fixed inset-x-0 bottom-0 z-40 flex gap-3 border-t border-zinc-100 bg-white p-4">
+      <div className="action-bar fixed inset-x-0 bottom-0 z-40 flex gap-3 border-t border-zinc-100 p-4 lg:hidden">
         <Button
           variant="outline"
           size="lg"

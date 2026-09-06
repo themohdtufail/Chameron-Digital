@@ -20,8 +20,10 @@ export default async function BuyerOrdersPage() {
 
   return (
     <div className="animate-fade-in">
-      <div className="sticky top-0 z-30 border-b border-zinc-100 bg-white/95 px-4 py-4 backdrop-blur">
-        <h1 className="text-lg font-extrabold text-zinc-900">My Orders</h1>
+      <div className="sticky top-0 z-30 border-b border-zinc-100 bg-white/95 px-4 py-4 backdrop-blur lg:static lg:border-0 lg:bg-transparent lg:backdrop-blur-none">
+        <div className="mx-auto max-w-2xl lg:px-8 lg:pt-4">
+          <h1 className="text-lg font-extrabold text-zinc-900 lg:text-2xl">My Orders</h1>
+        </div>
       </div>
 
       {orders.length === 0 ? (
@@ -36,7 +38,7 @@ export default async function BuyerOrdersPage() {
           }
         />
       ) : (
-        <div className="space-y-3 px-4 py-4">
+        <div className="mx-auto max-w-2xl space-y-3 px-4 py-4 lg:px-8 lg:py-6">
           {orders.map((order) => (
             <Link
               key={order.id}

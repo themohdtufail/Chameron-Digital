@@ -33,8 +33,8 @@ export function StoreProductBrowser({
 
   return (
     <div>
-      <div className="px-4">
-        <div className="relative">
+      <div className="px-4 lg:px-8">
+        <div className="relative lg:max-w-md">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
           <input
             value={query}
@@ -45,7 +45,7 @@ export function StoreProductBrowser({
         </div>
       </div>
 
-      <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto px-4">
+      <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto px-4 lg:px-8">
         <Tab active={activeTab === "all"} onClick={() => setActiveTab("all")}>
           All
         </Tab>
@@ -59,11 +59,11 @@ export function StoreProductBrowser({
         </Tab>
       </div>
 
-      <div className="px-4 py-4">
+      <div className="px-4 py-4 lg:px-8 lg:py-6">
         {filtered.length === 0 ? (
           <EmptyState icon={PackageSearch} title="No products found" description="Try a different search or category." />
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-5 xl:grid-cols-5">
             {filtered.map((p) => (
               <StoreProductCard key={p.id} product={p} />
             ))}

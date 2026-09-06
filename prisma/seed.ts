@@ -105,8 +105,10 @@ async function main() {
     },
   });
 
+  // Note: "Offers" is intentionally not a category — it's a built-in filter
+  // tab (any discounted product) in the store browser, not seller-managed.
   const store1Categories: Record<string, { id: string }> = {};
-  for (const name of ["Men", "Women", "Kids", "Offers"]) {
+  for (const name of ["Men", "Women", "Kids"]) {
     const cat = await prisma.productCategory.upsert({
       where: { storeId_slug: { storeId: store1.id, slug: slugify(name) } },
       update: {},
@@ -121,7 +123,7 @@ async function main() {
     { name: "Floral Summer Dress", category: "Women", price: 1799, discountPrice: 1399, sizes: ["S", "M", "L"] },
     { name: "Embroidered Kurti", category: "Women", price: 1499, discountPrice: null, sizes: ["S", "M", "L", "XL"] },
     { name: "Kids Graphic T-Shirt", category: "Kids", price: 599, discountPrice: 449, sizes: ["3-4Y", "5-6Y", "7-8Y"] },
-    { name: "Winter Wool Sweater", category: "Offers", price: 2199, discountPrice: 1599, sizes: ["M", "L", "XL"] },
+    { name: "Winter Wool Sweater", category: "Men", price: 2199, discountPrice: 1599, sizes: ["M", "L", "XL"] },
   ];
 
   for (const p of fashionProducts) {
@@ -181,7 +183,7 @@ async function main() {
     },
   });
 
-  for (const name of ["Starters", "Main Course", "Beverages", "Offers"]) {
+  for (const name of ["Starters", "Main Course", "Beverages"]) {
     await prisma.productCategory.upsert({
       where: { storeId_slug: { storeId: store2.id, slug: slugify(name) } },
       update: {},

@@ -17,7 +17,7 @@ export function SellerBottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 mx-auto flex w-full max-w-[480px] border-t border-zinc-100 bg-white/95 backdrop-blur">
+    <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 mx-auto flex w-full max-w-[480px] border-t border-zinc-100 bg-white/95 backdrop-blur lg:hidden">
       {items.map(({ href, label, icon: Icon }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);
         return (

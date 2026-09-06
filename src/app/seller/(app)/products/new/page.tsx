@@ -15,14 +15,16 @@ export default function NewProductPage() {
   }, []);
 
   return (
-    <div className="animate-fade-in px-4 py-5">
-      <div className="mb-4 flex items-center gap-3">
-        <Link href="/seller/products">
-          <ArrowLeft className="h-5 w-5 text-zinc-700" />
-        </Link>
-        <h1 className="text-lg font-extrabold text-zinc-900">Add product</h1>
+    <div className="animate-fade-in px-4 py-5 lg:px-10 lg:py-8">
+      <div className="mx-auto max-w-3xl">
+        <div className="mb-4 flex items-center gap-3">
+          <Link href="/seller/products">
+            <ArrowLeft className="h-5 w-5 text-zinc-700" />
+          </Link>
+          <h1 className="text-lg font-extrabold text-zinc-900 lg:text-2xl">Add product</h1>
+        </div>
+        <ProductForm categories={categories} initial={emptyProductForm} />
       </div>
-      <ProductForm categories={categories} initial={emptyProductForm} />
     </div>
   );
 }

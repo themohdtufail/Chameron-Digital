@@ -38,25 +38,28 @@ export default function SellerOrdersPage() {
 
   return (
     <div className="animate-fade-in">
-      <div className="sticky top-0 z-30 border-b border-zinc-100 bg-white/95 px-4 pb-3 pt-4 backdrop-blur">
-        <h1 className="mb-3 text-lg font-extrabold text-zinc-900">Orders</h1>
-        <div className="no-scrollbar flex gap-2 overflow-x-auto">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={cn(
-                "shrink-0 rounded-full border px-4 py-1.5 text-sm font-semibold transition",
-                tab === t.key ? "border-brand-600 bg-brand-600 text-white" : "border-zinc-200 text-zinc-600"
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
+      <div className="sticky top-0 z-30 border-b border-zinc-100 bg-white/95 px-4 pb-3 pt-4 backdrop-blur lg:static lg:border-0 lg:bg-transparent lg:px-10 lg:pt-8 lg:backdrop-blur-none">
+        <div className="mx-auto max-w-5xl">
+          <h1 className="mb-3 text-lg font-extrabold text-zinc-900 lg:text-2xl">Orders</h1>
+          <div className="no-scrollbar flex gap-2 overflow-x-auto">
+            {TABS.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={cn(
+                  "shrink-0 rounded-full border px-4 py-1.5 text-sm font-semibold transition",
+                  tab === t.key ? "border-brand-600 bg-brand-600 text-white" : "border-zinc-200 text-zinc-600"
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="px-4 py-4">
+      <div className="px-4 py-4 lg:px-10 lg:py-6">
+        <div className="mx-auto max-w-5xl">
         {!orders && (
           <div className="space-y-3">
             <Skeleton className="h-16 w-full" />
@@ -69,7 +72,7 @@ export default function SellerOrdersPage() {
         )}
 
         {orders && orders.length > 0 && (
-          <div className="space-y-3">
+          <div className="grid gap-3 lg:grid-cols-2">
             {orders.map((order) => (
               <Link
                 key={order.id}
@@ -88,6 +91,7 @@ export default function SellerOrdersPage() {
             ))}
           </div>
         )}
+        </div>
       </div>
     </div>
   );

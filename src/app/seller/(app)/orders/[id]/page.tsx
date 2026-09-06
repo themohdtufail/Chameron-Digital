@@ -21,15 +21,17 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
   if (!order) notFound();
 
   return (
-    <div className="animate-fade-in pb-28">
-      <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-zinc-100 bg-white/95 px-4 py-4 backdrop-blur">
-        <Link href="/seller/orders">
-          <ArrowLeft className="h-5 w-5 text-zinc-700" />
-        </Link>
-        <h1 className="text-lg font-extrabold text-zinc-900">Order {order.orderNumber}</h1>
+    <div className="animate-fade-in pb-28 lg:pb-16">
+      <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-zinc-100 bg-white/95 px-4 py-4 backdrop-blur lg:static lg:border-0 lg:bg-transparent lg:px-10 lg:pt-8 lg:backdrop-blur-none">
+        <div className="mx-auto flex max-w-3xl items-center gap-3">
+          <Link href="/seller/orders">
+            <ArrowLeft className="h-5 w-5 text-zinc-700" />
+          </Link>
+          <h1 className="text-lg font-extrabold text-zinc-900 lg:text-2xl">Order {order.orderNumber}</h1>
+        </div>
       </div>
 
-      <div className="space-y-5 px-4 py-5">
+      <div className="mx-auto max-w-3xl space-y-5 px-4 py-5 lg:px-10 lg:py-6">
         <div className="flex items-center justify-between">
           <p className="text-sm text-zinc-500">Placed {order.createdAt.toLocaleString()}</p>
           <OrderStatusBadge status={order.status as OrderStatusValue} />
@@ -82,9 +84,13 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
             Payment: {order.paymentMethod === "COD" ? "Cash on Delivery" : "Online"}
           </p>
         </section>
+
+        <div className="hidden lg:block">
+          <SellerOrderActions orderId={order.id} status={order.status as OrderStatusValue} />
+        </div>
       </div>
 
-      <div className="app-shell fixed inset-x-0 bottom-[64px] z-40 border-t border-zinc-100 bg-white p-4">
+      <div className="action-bar fixed inset-x-0 bottom-[64px] z-40 border-t border-zinc-100 p-4 lg:hidden">
         <SellerOrderActions orderId={order.id} status={order.status as OrderStatusValue} />
       </div>
     </div>

@@ -62,32 +62,36 @@ export default async function CategoriesPage({
 
   return (
     <div className="animate-fade-in">
-      <div className="sticky top-0 z-30 space-y-3 border-b border-zinc-100 bg-white/95 px-4 pb-3 pt-4 backdrop-blur">
+      <div className="sticky top-0 z-30 space-y-3 border-b border-zinc-100 bg-white/95 px-4 pb-3 pt-4 backdrop-blur lg:hidden">
         <h1 className="text-lg font-extrabold text-zinc-900">Categories</h1>
         <SearchBar />
       </div>
 
-      <div className="no-scrollbar flex gap-2 overflow-x-auto px-4 py-3">
-        <Chip href="/buyer/categories" active={!searchParams.slug}>
-          All
-        </Chip>
-        {categories.map((cat) => (
-          <Chip key={cat.id} href={`/buyer/categories?slug=${cat.slug}`} active={searchParams.slug === cat.slug}>
-            {cat.name}
-          </Chip>
-        ))}
-      </div>
+      <div className="page-container">
+        <h1 className="hidden px-8 pt-8 text-2xl font-extrabold text-zinc-900 lg:block">Categories</h1>
 
-      <div className="px-4 pb-6">
-        {summaries.length === 0 ? (
-          <EmptyState icon={StoreIcon} title="No stores found" description="Try a different category." />
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {summaries.map((store) => (
-              <StoreCard key={store.id} store={store} />
-            ))}
-          </div>
-        )}
+        <div className="no-scrollbar flex gap-2 overflow-x-auto px-4 py-3 lg:px-8 lg:pt-5">
+          <Chip href="/buyer/categories" active={!searchParams.slug}>
+            All
+          </Chip>
+          {categories.map((cat) => (
+            <Chip key={cat.id} href={`/buyer/categories?slug=${cat.slug}`} active={searchParams.slug === cat.slug}>
+              {cat.name}
+            </Chip>
+          ))}
+        </div>
+
+        <div className="px-4 pb-6 lg:px-8 lg:pb-12">
+          {summaries.length === 0 ? (
+            <EmptyState icon={StoreIcon} title="No stores found" description="Try a different category." />
+          ) : (
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-5 xl:grid-cols-5">
+              {summaries.map((store) => (
+                <StoreCard key={store.id} store={store} />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
