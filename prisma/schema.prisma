@@ -131,6 +131,11 @@ enum LoyaltyTransactionType {
   ADJUSTED
 }
 
+enum CouponType {
+  PERCENTAGE
+  FIXED
+}
+
 enum ProductRequestStatus {
   PENDING
   RESPONDED
@@ -381,6 +386,7 @@ model Store {
   documents         StoreDocument[]
   subscription      SellerSubscription?
   commissionRules   CommissionRule[]
+  coupons           Coupon[]
 
   @@index([status])
   @@index([city])
@@ -588,6 +594,49 @@ model LoyaltyTransaction {
 }
 
 // ---------------------------------------------------------------------------
+// Marketing (coupons)
+// ---------------------------------------------------------------------------
+
+// A seller-scoped coupon; "flash sale"/"festival sale" is just a coupon
+// with a promotional name and a short date window — no separate Offer
+// entity needed. Validation (dates/usage-limit/min-order/one-per-buyer)
+// is a pure function (src/lib/coupon.ts's validateCoupon) so the whole
+// rule set is unit-testable without a database.
+model Coupon {
+  id             String     @id @default(cuid())
+  storeId        String
+  store          Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  code           String
+  type           CouponType
+  value          Float
+  minOrderAmount Float      @default(0)
+  startDate      DateTime
+  endDate        DateTime
+  usageLimit     Int?
+  isActive       Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  redemptions CouponRedemption[]
+
+  @@unique([storeId, code])
+  @@index([storeId])
+}
+
+model CouponRedemption {
+  id             String   @id @default(cuid())
+  couponId       String
+  coupon         Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  buyerId        String
+  orderId        String   @unique
+  discountAmount Float
+  createdAt      DateTime @default(now())
+
+  @@unique([couponId, buyerId])
+  @@index([couponId])
+}
+
+// ---------------------------------------------------------------------------
 // Orders
 // ---------------------------------------------------------------------------
 
@@ -610,6 +659,7 @@ model Order {
   deliveryFee     Float         @default(0)
   discountAmount  Float         @default(0)
   loyaltyPointsRedeemed Int     @default(0)
+  couponCode      String?
   total           Float
   notes           String?
   deliveryPartnerId   String?

@@ -85,10 +85,18 @@ export default async function BuyerOrderDetailPage({ params }: { params: { id: s
               <span>Delivery charge</span>
               <span>{order.deliveryFee ? formatCurrency(order.deliveryFee) : "Free"}</span>
             </div>
-            {order.discountAmount > 0 && (
+            {order.couponCode && (
+              <div className="flex justify-between text-success-600">
+                <span>Coupon ({order.couponCode})</span>
+                <span>
+                  -{formatCurrency(order.discountAmount - order.loyaltyPointsRedeemed)}
+                </span>
+              </div>
+            )}
+            {order.loyaltyPointsRedeemed > 0 && (
               <div className="flex justify-between text-success-600">
                 <span>Loyalty discount ({order.loyaltyPointsRedeemed} pts)</span>
-                <span>-{formatCurrency(order.discountAmount)}</span>
+                <span>-{formatCurrency(order.loyaltyPointsRedeemed)}</span>
               </div>
             )}
             <div className="flex justify-between text-base font-extrabold text-zinc-900">

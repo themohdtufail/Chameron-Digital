@@ -33,7 +33,7 @@ Auth: **cookie** = the `cd_session` JWT cookie set by login; role in brackets is
 | `PATCH /api/cart/items/[id]` | BUYER | Update quantity (`0` deletes). |
 | `DELETE /api/cart/items/[id]` | BUYER | Remove an item. |
 | `GET /api/orders` | BUYER | The buyer's own orders. |
-| `POST /api/orders` | BUYER | Places an order from the cart. Body accepts `redeemPoints` (loyalty points to redeem, capped by both balance and subtotal — ₹1 off per point). Rate-limited. Stock is decremented with a concurrency-safe conditional update (`stock >= qty` in the `WHERE` clause) inside the order transaction; notifies the seller (new order) and the buyer (order placed), and the seller again if stock crosses low/out. |
+| `POST /api/orders` | BUYER | Places an order from the cart. Body accepts `couponCode` (applied to the subtotal first, re-validated from scratch server-side) and `redeemPoints` (loyalty points redeemed against what remains after the coupon, capped by balance and subtotal — ₹1 off per point). Rate-limited. Stock is decremented with a concurrency-safe conditional update (`stock >= qty` in the `WHERE` clause) inside the order transaction; notifies the seller (new order) and the buyer (order placed), and the seller again if stock crosses low/out. |
 | `GET /api/orders/[id]` | buyer/seller owner or ADMIN | Order detail. |
 | `PATCH /api/orders/[id]` | buyer/seller owner, assigned DELIVERY_PARTNER, or ADMIN | Status transition. Body: `{ status, reason? }`. Validated by the pure `canTransition()` state machine (`src/lib/order-status.ts`) — buyer can only move to `CANCELLED` (through `PENDING`/`CONFIRMED`); seller/admin drive the forward pipeline (`PENDING→…→READY`) and `REJECTED`; an assigned delivery partner can only advance `PICKED_UP→OUT_FOR_DELIVERY→DELIVERED` on orders assigned to them. Cancel/reject restores stock (`InventoryLog`, reason `RETURN`), writes an `AuditLog` row, and notifies the other party. A COD order's `Payment` is marked `PAID` automatically when it reaches `DELIVERED`. |
 | `PATCH /api/orders/[id]/delivery-partner` | seller owner or ADMIN | Assign/unassign a delivery partner. Body: `{ deliveryPartnerId: string \| null }`; the target must be an admin-`APPROVED` partner. Not allowed once the order is `DELIVERED`/`CANCELLED`/`REJECTED`. |
@@ -66,6 +66,16 @@ Buyers earn 1 point per ₹100 spent (`src/lib/loyalty.ts`), credited when an or
 | Method & path | Auth | Notes |
 |---|---|---|
 | `GET /api/loyalty` | any | The caller's points balance + last 20 transactions. |
+
+## Coupons
+
+Seller-scoped coupons (`Coupon`); a "flash sale"/"festival sale" is just a coupon with a promotional name and a short date window — no separate offers entity. Validation (dates, usage limit, min order, one redemption per buyer) is the pure `validateCoupon()` in `src/lib/coupon.ts`.
+
+| Method & path | Auth | Notes |
+|---|---|---|
+| `POST /api/coupons/validate` | BUYER | Preview-only: `{ code, storeId, subtotal }` → `{ valid, discountAmount }`. The order-creation route re-validates independently and never trusts this response. |
+| `GET/POST /api/seller/coupons` | SELLER | List own coupons (with redemption count) / create one. |
+| `PATCH/DELETE /api/seller/coupons/[id]` | SELLER (own) | Toggle `isActive`, extend `endDate`/`usageLimit`, or delete. |
 
 ## Location
 

@@ -134,6 +134,27 @@ export const deliveryPartnerRegisterSchema = z.object({
   vehicleType: z.string().trim().max(40).optional(),
 });
 
+export const couponSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .min(3)
+    .max(20)
+    .transform((s) => s.toUpperCase()),
+  type: z.enum(["PERCENTAGE", "FIXED"]),
+  value: z.number().positive(),
+  minOrderAmount: z.number().min(0).default(0),
+  startDate: z.string().datetime(),
+  endDate: z.string().datetime(),
+  usageLimit: z.number().int().positive().nullable().optional(),
+});
+
+export const couponUpdateSchema = z.object({
+  isActive: z.boolean().optional(),
+  endDate: z.string().datetime().optional(),
+  usageLimit: z.number().int().positive().nullable().optional(),
+});
+
 export const locationSchema = z.object({
   label: z.string().trim().min(1).max(40).default("Current"),
   fullName: z.string().trim().max(80).optional(),

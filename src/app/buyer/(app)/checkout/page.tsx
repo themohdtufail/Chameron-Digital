@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { ArrowLeft, MapPin, Plus, Wallet, CreditCard, Check, Gift } from "lucide-react";
+import { ArrowLeft, MapPin, Plus, Wallet, CreditCard, Check, Gift, Tag, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -45,8 +45,12 @@ export default function CheckoutPage() {
   const [notes, setNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"COD" | "ONLINE">("COD");
   const [cartTotal, setCartTotal] = useState<{ subtotal: number; deliveryFee: number; total: number } | null>(null);
+  const [storeId, setStoreId] = useState<string | null>(null);
   const [loyaltyBalance, setLoyaltyBalance] = useState(0);
   const [useLoyalty, setUseLoyalty] = useState(false);
+  const [couponInput, setCouponInput] = useState("");
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountAmount: number } | null>(null);
 
   const [newAddress, setNewAddress] = useState(emptyAddressForm);
 
@@ -66,6 +70,7 @@ export default function CheckoutPage() {
       setAddresses(loc.locations ?? []);
       setSelectedAddressId(loc.locations?.[0]?.id ?? null);
       setCartTotal({ subtotal: cart.subtotal, deliveryFee: cart.deliveryFee, total: cart.total });
+      setStoreId(cart.store?.id ?? null);
       setLoyaltyBalance(loyalty.pointsBalance ?? 0);
       if (!loc.locations?.length) {
         setNewAddress((s) => ({ ...s, fullName: me.user?.name ?? "", phone: me.user?.phone ?? "" }));
@@ -101,6 +106,26 @@ export default function CheckoutPage() {
     return data.location.id as string;
   }
 
+  async function applyCoupon() {
+    if (!couponInput.trim() || !storeId || !cartTotal) return;
+    setApplyingCoupon(true);
+    try {
+      const res = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: couponInput.trim(), storeId, subtotal: cartTotal.subtotal }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Invalid coupon");
+      setAppliedCoupon({ code: data.code, discountAmount: data.discountAmount });
+      toast.success(`Coupon ${data.code} applied!`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not apply coupon");
+    } finally {
+      setApplyingCoupon(false);
+    }
+  }
+
   async function placeOrder() {
     let addressId = selectedAddressId;
     if (showAddForm || !addressId) {
@@ -122,6 +147,7 @@ export default function CheckoutPage() {
           notes: notes || undefined,
           paymentMethod,
           redeemPoints,
+          couponCode: appliedCoupon?.code,
         }),
       });
       const data = await res.json();
@@ -137,9 +163,10 @@ export default function CheckoutPage() {
 
   if (loading) return <div className="p-6 text-center text-sm text-zinc-400">Loading checkout…</div>;
 
+  const couponDiscount = appliedCoupon?.discountAmount ?? 0;
   const redeemPoints =
-    useLoyalty && cartTotal ? Math.min(loyaltyBalance, Math.floor(cartTotal.subtotal)) : 0;
-  const discount = redeemPoints;
+    useLoyalty && cartTotal ? Math.min(loyaltyBalance, Math.floor(cartTotal.subtotal - couponDiscount)) : 0;
+  const discount = couponDiscount + redeemPoints;
   const finalTotal = cartTotal ? cartTotal.total - discount : 0;
 
   return (
@@ -305,6 +332,33 @@ export default function CheckoutPage() {
           </div>
         </section>
 
+        <section>
+          <h2 className="mb-3 text-sm font-bold text-zinc-900">Coupon</h2>
+          {appliedCoupon ? (
+            <div className="flex items-center justify-between rounded-xl border border-success-200 bg-success-50 p-3">
+              <span className="flex items-center gap-2 text-sm font-semibold text-success-700">
+                <Tag className="h-4 w-4" /> {appliedCoupon.code} applied — {formatCurrency(appliedCoupon.discountAmount)} off
+              </span>
+              <button onClick={() => setAppliedCoupon(null)} aria-label="Remove coupon">
+                <X className="h-4 w-4 text-success-600" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Input
+                  placeholder="Enter coupon code"
+                  value={couponInput}
+                  onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                />
+              </div>
+              <Button variant="outline" loading={applyingCoupon} onClick={applyCoupon}>
+                Apply
+              </Button>
+            </div>
+          )}
+        </section>
+
         {loyaltyBalance > 0 && (
           <section>
             <label className="flex items-center justify-between rounded-xl border border-zinc-200 p-3">
@@ -326,7 +380,8 @@ export default function CheckoutPage() {
           <section className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-card lg:hidden">
             <Row label="Subtotal" value={formatCurrency(cartTotal.subtotal)} />
             <Row label="Delivery charge" value={cartTotal.deliveryFee ? formatCurrency(cartTotal.deliveryFee) : "Free"} />
-            {discount > 0 && <Row label="Loyalty discount" value={`-${formatCurrency(discount)}`} />}
+            {couponDiscount > 0 && <Row label="Coupon discount" value={`-${formatCurrency(couponDiscount)}`} />}
+            {redeemPoints > 0 && <Row label="Loyalty discount" value={`-${formatCurrency(redeemPoints)}`} />}
             <div className="my-1 border-t border-dashed border-zinc-200" />
             <Row label="Total" value={formatCurrency(finalTotal)} bold />
           </section>
@@ -338,7 +393,8 @@ export default function CheckoutPage() {
           <div className="space-y-2 rounded-2xl border border-zinc-100 bg-white p-4 shadow-card">
             <Row label="Subtotal" value={formatCurrency(cartTotal.subtotal)} />
             <Row label="Delivery charge" value={cartTotal.deliveryFee ? formatCurrency(cartTotal.deliveryFee) : "Free"} />
-            {discount > 0 && <Row label="Loyalty discount" value={`-${formatCurrency(discount)}`} />}
+            {couponDiscount > 0 && <Row label="Coupon discount" value={`-${formatCurrency(couponDiscount)}`} />}
+            {redeemPoints > 0 && <Row label="Loyalty discount" value={`-${formatCurrency(redeemPoints)}`} />}
             <div className="my-1 border-t border-dashed border-zinc-200" />
             <Row label="Total" value={formatCurrency(finalTotal)} bold />
             <Button size="lg" fullWidth loading={placing} onClick={placeOrder} className="mt-3">

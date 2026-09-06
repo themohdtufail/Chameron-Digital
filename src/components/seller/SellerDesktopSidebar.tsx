@@ -15,6 +15,7 @@ import {
   Settings,
   ShieldCheck,
   CreditCard,
+  Tag,
   Store as StoreIcon,
   ExternalLink,
 } from "lucide-react";
@@ -31,6 +32,7 @@ const items = [
   { href: "/seller/requests", label: "Product requests", icon: Inbox },
   { href: "/seller/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/seller/customers", label: "Customers", icon: Users },
+  { href: "/seller/coupons", label: "Coupons", icon: Tag },
   { href: "/seller/plans", label: "Plans & billing", icon: CreditCard },
   { href: "/seller/verification", label: "Verification", icon: ShieldCheck },
   { href: "/seller/settings", label: "Settings", icon: Settings },
