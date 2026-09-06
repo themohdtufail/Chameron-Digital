@@ -120,6 +120,15 @@ enum NotificationType {
   PRODUCT_REQUEST_RECEIVED
   PRODUCT_REQUEST_RESPONSE
   DELIVERY_ASSIGNED
+  BACK_IN_STOCK
+  PRICE_DROP
+}
+
+enum LoyaltyTransactionType {
+  EARNED
+  REDEEMED
+  REFUNDED
+  ADJUSTED
 }
 
 enum ProductRequestStatus {
@@ -152,6 +161,7 @@ model User {
   orders           Order[]           @relation("BuyerOrders")
   deliveries       Order[]           @relation("DeliveryPartnerOrders")
   deliveryPartner  DeliveryPartner?
+  loyaltyAccount   LoyaltyAccount?
   reviews          Review[]
   sessions         Session[]
   wishlist         Wishlist[]
@@ -546,6 +556,38 @@ model Wishlist {
 }
 
 // ---------------------------------------------------------------------------
+// Loyalty
+// ---------------------------------------------------------------------------
+
+// Architecture-only-if-not-fully-launching per the brief; this is a real,
+// working slice (earn on delivery, redeem at checkout) using a hardcoded
+// rate rather than PlatformSetting, which doesn't exist until Milestone 10
+// — the same pattern as commission's DEFAULT_COMMISSION_PERCENTAGE.
+model LoyaltyAccount {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pointsBalance  Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  transactions LoyaltyTransaction[]
+}
+
+model LoyaltyTransaction {
+  id        String                 @id @default(cuid())
+  accountId String
+  account   LoyaltyAccount         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  type      LoyaltyTransactionType
+  points    Int
+  orderId   String?
+  note      String?
+  createdAt DateTime               @default(now())
+
+  @@index([accountId])
+}
+
+// ---------------------------------------------------------------------------
 // Orders
 // ---------------------------------------------------------------------------
 
@@ -566,6 +608,8 @@ model Order {
   paymentStatus   PaymentStatus @default(PENDING)
   subtotal        Float
   deliveryFee     Float         @default(0)
+  discountAmount  Float         @default(0)
+  loyaltyPointsRedeemed Int     @default(0)
   total           Float
   notes           String?
   deliveryPartnerId   String?

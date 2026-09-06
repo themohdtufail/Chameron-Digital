@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
 import { createNotification } from "@/lib/notify";
 import { canTransition, type OrderStatus } from "@/lib/order-status";
+import { earnLoyaltyPoints, refundLoyaltyPoints } from "@/lib/loyalty";
 
 const STATUS_LABEL: Record<string, string> = {
   CONFIRMED: "confirmed",
@@ -155,6 +156,13 @@ export const PATCH = withApiErrors(async (req: NextRequest, { params }: { params
 
     return result;
   });
+
+  if (status === "DELIVERED") {
+    await earnLoyaltyPoints(order.buyerId, order.id, order.total);
+  }
+  if (isCancellingOrRejecting && order.loyaltyPointsRedeemed > 0) {
+    await refundLoyaltyPoints(order.buyerId, order.id, order.loyaltyPointsRedeemed);
+  }
 
   if (status === "CANCELLED") {
     await createNotification({

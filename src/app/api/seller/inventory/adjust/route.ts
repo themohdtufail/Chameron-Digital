@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth";
 import { inventoryAdjustSchema } from "@/lib/validation";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
 import { notifyLowStockIfCrossed } from "@/lib/notify";
+import { notifyWishlistersOnRestock } from "@/lib/wishlist-notify";
 
 export const POST = withApiErrors(async (req: NextRequest) => {
   const user = await requireRole("SELLER");
@@ -48,14 +49,22 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   });
 
   if (!body.variantId && product.trackInventory) {
+    const newStock = product.stockQuantity + body.delta;
     await notifyLowStockIfCrossed({
       storeOwnerId: store.ownerId,
       storeId: store.id,
       productId: product.id,
       productName: product.name,
       previousStock: product.stockQuantity,
-      newStock: product.stockQuantity + body.delta,
+      newStock,
       threshold: product.lowStockThreshold,
+    });
+    await notifyWishlistersOnRestock({
+      productId: product.id,
+      productName: product.name,
+      storeId: store.id,
+      previousStock: product.stockQuantity,
+      newStock,
     });
   }
 

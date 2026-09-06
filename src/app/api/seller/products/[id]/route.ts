@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth";
 import { productSchema } from "@/lib/validation";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
 import { writeAuditLog } from "@/lib/audit";
+import { notifyWishlistersOnPriceDrop } from "@/lib/wishlist-notify";
 
 async function loadOwnedProduct(userId: string, productId: string) {
   const store = await prisma.store.findUnique({ where: { ownerId: userId } });
@@ -29,8 +30,8 @@ const patchSchema = productSchema.partial().extend({ isHidden: z.boolean().optio
 
 export const PATCH = withApiErrors(async (req: NextRequest, { params }: { params: { id: string } }) => {
   const user = await requireRole("SELLER");
-  const { product } = await loadOwnedProduct(user.id, params.id);
-  if (!product) return jsonError("Product not found", 404);
+  const { store, product } = await loadOwnedProduct(user.id, params.id);
+  if (!product || !store) return jsonError("Product not found", 404);
 
   const body = patchSchema.parse(await req.json());
 
@@ -76,6 +77,18 @@ export const PATCH = withApiErrors(async (req: NextRequest, { params }: { params
       entityType: "Product",
       entityId: product.id,
       metadata: { from: product.price, to: body.price },
+    });
+  }
+
+  const previousEffectivePrice = product.discountPrice ?? product.price;
+  const newEffectivePrice = updated.discountPrice ?? updated.price;
+  if (newEffectivePrice < previousEffectivePrice) {
+    await notifyWishlistersOnPriceDrop({
+      productId: product.id,
+      productName: updated.name,
+      storeId: store.id,
+      previousPrice: previousEffectivePrice,
+      newPrice: newEffectivePrice,
     });
   }
 

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { ArrowLeft, MapPin, Plus, Wallet, CreditCard, Check } from "lucide-react";
+import { ArrowLeft, MapPin, Plus, Wallet, CreditCard, Check, Gift } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -45,23 +45,28 @@ export default function CheckoutPage() {
   const [notes, setNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"COD" | "ONLINE">("COD");
   const [cartTotal, setCartTotal] = useState<{ subtotal: number; deliveryFee: number; total: number } | null>(null);
+  const [loyaltyBalance, setLoyaltyBalance] = useState(0);
+  const [useLoyalty, setUseLoyalty] = useState(false);
 
   const [newAddress, setNewAddress] = useState(emptyAddressForm);
 
   useEffect(() => {
     (async () => {
-      const [meRes, locRes, cartRes] = await Promise.all([
+      const [meRes, locRes, cartRes, loyaltyRes] = await Promise.all([
         fetch("/api/auth/me"),
         fetch("/api/location"),
         fetch("/api/cart"),
+        fetch("/api/loyalty"),
       ]);
       const me = await meRes.json();
       const loc = await locRes.json();
       const cart = await cartRes.json();
+      const loyalty = await loyaltyRes.json();
 
       setAddresses(loc.locations ?? []);
       setSelectedAddressId(loc.locations?.[0]?.id ?? null);
       setCartTotal({ subtotal: cart.subtotal, deliveryFee: cart.deliveryFee, total: cart.total });
+      setLoyaltyBalance(loyalty.pointsBalance ?? 0);
       if (!loc.locations?.length) {
         setNewAddress((s) => ({ ...s, fullName: me.user?.name ?? "", phone: me.user?.phone ?? "" }));
         setShowAddForm(true);
@@ -116,6 +121,7 @@ export default function CheckoutPage() {
           customerPhone: address?.phone || newAddress.phone,
           notes: notes || undefined,
           paymentMethod,
+          redeemPoints,
         }),
       });
       const data = await res.json();
@@ -130,6 +136,11 @@ export default function CheckoutPage() {
   }
 
   if (loading) return <div className="p-6 text-center text-sm text-zinc-400">Loading checkout…</div>;
+
+  const redeemPoints =
+    useLoyalty && cartTotal ? Math.min(loyaltyBalance, Math.floor(cartTotal.subtotal)) : 0;
+  const discount = redeemPoints;
+  const finalTotal = cartTotal ? cartTotal.total - discount : 0;
 
   return (
     <div className="animate-fade-in pb-32 lg:pb-16">
@@ -294,12 +305,30 @@ export default function CheckoutPage() {
           </div>
         </section>
 
+        {loyaltyBalance > 0 && (
+          <section>
+            <label className="flex items-center justify-between rounded-xl border border-zinc-200 p-3">
+              <span className="flex items-center gap-2 text-sm font-semibold text-zinc-800">
+                <Gift className="h-4 w-4 text-accent-500" />
+                Use {loyaltyBalance} loyalty point{loyaltyBalance === 1 ? "" : "s"} (₹{loyaltyBalance} off)
+              </span>
+              <input
+                type="checkbox"
+                checked={useLoyalty}
+                onChange={(e) => setUseLoyalty(e.target.checked)}
+                className="h-5 w-5 accent-brand-600"
+              />
+            </label>
+          </section>
+        )}
+
         {cartTotal && (
           <section className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-card lg:hidden">
             <Row label="Subtotal" value={formatCurrency(cartTotal.subtotal)} />
             <Row label="Delivery charge" value={cartTotal.deliveryFee ? formatCurrency(cartTotal.deliveryFee) : "Free"} />
+            {discount > 0 && <Row label="Loyalty discount" value={`-${formatCurrency(discount)}`} />}
             <div className="my-1 border-t border-dashed border-zinc-200" />
-            <Row label="Total" value={formatCurrency(cartTotal.total)} bold />
+            <Row label="Total" value={formatCurrency(finalTotal)} bold />
           </section>
         )}
       </div>
@@ -309,8 +338,9 @@ export default function CheckoutPage() {
           <div className="space-y-2 rounded-2xl border border-zinc-100 bg-white p-4 shadow-card">
             <Row label="Subtotal" value={formatCurrency(cartTotal.subtotal)} />
             <Row label="Delivery charge" value={cartTotal.deliveryFee ? formatCurrency(cartTotal.deliveryFee) : "Free"} />
+            {discount > 0 && <Row label="Loyalty discount" value={`-${formatCurrency(discount)}`} />}
             <div className="my-1 border-t border-dashed border-zinc-200" />
-            <Row label="Total" value={formatCurrency(cartTotal.total)} bold />
+            <Row label="Total" value={formatCurrency(finalTotal)} bold />
             <Button size="lg" fullWidth loading={placing} onClick={placeOrder} className="mt-3">
               Place order
             </Button>

@@ -33,7 +33,7 @@ Auth: **cookie** = the `cd_session` JWT cookie set by login; role in brackets is
 | `PATCH /api/cart/items/[id]` | BUYER | Update quantity (`0` deletes). |
 | `DELETE /api/cart/items/[id]` | BUYER | Remove an item. |
 | `GET /api/orders` | BUYER | The buyer's own orders. |
-| `POST /api/orders` | BUYER | Places an order from the cart. Rate-limited. Stock is decremented with a concurrency-safe conditional update (`stock >= qty` in the `WHERE` clause) inside the order transaction; notifies the seller (new order) and the buyer (order placed), and the seller again if stock crosses low/out. |
+| `POST /api/orders` | BUYER | Places an order from the cart. Body accepts `redeemPoints` (loyalty points to redeem, capped by both balance and subtotal — ₹1 off per point). Rate-limited. Stock is decremented with a concurrency-safe conditional update (`stock >= qty` in the `WHERE` clause) inside the order transaction; notifies the seller (new order) and the buyer (order placed), and the seller again if stock crosses low/out. |
 | `GET /api/orders/[id]` | buyer/seller owner or ADMIN | Order detail. |
 | `PATCH /api/orders/[id]` | buyer/seller owner, assigned DELIVERY_PARTNER, or ADMIN | Status transition. Body: `{ status, reason? }`. Validated by the pure `canTransition()` state machine (`src/lib/order-status.ts`) — buyer can only move to `CANCELLED` (through `PENDING`/`CONFIRMED`); seller/admin drive the forward pipeline (`PENDING→…→READY`) and `REJECTED`; an assigned delivery partner can only advance `PICKED_UP→OUT_FOR_DELIVERY→DELIVERED` on orders assigned to them. Cancel/reject restores stock (`InventoryLog`, reason `RETURN`), writes an `AuditLog` row, and notifies the other party. A COD order's `Payment` is marked `PAID` automatically when it reaches `DELIVERED`. |
 | `PATCH /api/orders/[id]/delivery-partner` | seller owner or ADMIN | Assign/unassign a delivery partner. Body: `{ deliveryPartnerId: string \| null }`; the target must be an admin-`APPROVED` partner. Not allowed once the order is `DELIVERED`/`CANCELLED`/`REJECTED`. |
@@ -58,6 +58,14 @@ Every order gets a `Payment` row at creation (`src/lib/payment-gateway.ts` — a
 | `GET /api/product-requests` | BUYER | The buyer's own requests. |
 | `POST /api/product-requests` | BUYER | Create a request; notifies the store owner if one was targeted. Rate-limited. |
 | `PATCH /api/product-requests/[id]` | BUYER | `{ decision: "ACCEPTED" | "DECLINED" }`, only while `RESPONDED`. |
+
+## Loyalty
+
+Buyers earn 1 point per ₹100 spent (`src/lib/loyalty.ts`), credited when an order reaches `DELIVERED` and refunded if a points-funded order is later cancelled/rejected. The rate is hardcoded until `PlatformSetting` exists (Milestone 10) — same seam pattern as commission's default percentage.
+
+| Method & path | Auth | Notes |
+|---|---|---|
+| `GET /api/loyalty` | any | The caller's points balance + last 20 transactions. |
 
 ## Location
 

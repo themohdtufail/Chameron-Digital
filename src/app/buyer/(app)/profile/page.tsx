@@ -1,4 +1,4 @@
-import { User, MapPin, Phone, Mail, Store, ShieldCheck, Heart, Bell, Inbox } from "lucide-react";
+import { User, MapPin, Phone, Mail, Store, ShieldCheck, Heart, Bell, Inbox, Gift } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { LogoutButton } from "@/components/LogoutButton";
@@ -8,10 +8,13 @@ export const dynamic = "force-dynamic";
 
 export default async function BuyerProfilePage() {
   const user = await getCurrentUser();
-  const addresses = await prisma.location.findMany({
-    where: { userId: user!.id },
-    orderBy: [{ isCurrent: "desc" }, { createdAt: "desc" }],
-  });
+  const [addresses, loyaltyAccount] = await Promise.all([
+    prisma.location.findMany({
+      where: { userId: user!.id },
+      orderBy: [{ isCurrent: "desc" }, { createdAt: "desc" }],
+    }),
+    prisma.loyaltyAccount.findUnique({ where: { userId: user!.id } }),
+  ]);
 
   return (
     <div className="animate-fade-in mx-auto max-w-2xl px-4 py-5 lg:px-8 lg:py-10">
@@ -49,6 +52,16 @@ export default async function BuyerProfilePage() {
           </div>
         )}
       </div>
+
+      <Link
+        href="/buyer/loyalty"
+        className="mt-4 flex items-center justify-between rounded-2xl border border-accent-100 bg-accent-50 p-4"
+      >
+        <span className="flex items-center gap-2 text-sm font-semibold text-accent-800">
+          <Gift className="h-4 w-4" /> Loyalty points
+        </span>
+        <span className="text-lg font-extrabold text-accent-800">{loyaltyAccount?.pointsBalance ?? 0}</span>
+      </Link>
 
       <div className="mt-4 grid grid-cols-3 gap-3">
         <Link

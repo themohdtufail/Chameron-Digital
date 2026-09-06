@@ -9,6 +9,7 @@ import { resolveCommissionForStore } from "@/lib/commission";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { createNotification, notifyLowStockIfCrossed } from "@/lib/notify";
 import { getPaymentGateway } from "@/lib/payment-gateway";
+import { computeRedemptionDiscount, redeemLoyaltyPoints } from "@/lib/loyalty";
 
 const checkoutSchema = z.object({
   addressId: z.string(),
@@ -16,6 +17,7 @@ const checkoutSchema = z.object({
   customerPhone: z.string().trim().min(10).max(15),
   notes: z.string().trim().max(300).optional(),
   paymentMethod: z.enum(["COD", "ONLINE"]).default("COD"),
+  redeemPoints: z.number().int().min(0).max(100000).default(0),
 });
 
 class OutOfStockError extends Error {}
@@ -62,10 +64,24 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     }
   }
 
-  const { subtotal, deliveryFee, total } = computeCartTotals(
+  const { subtotal, deliveryFee, total: preDiscountTotal } = computeCartTotals(
     cartItems.map((item) => ({ lineTotal: computeUnitPrice(item.product, item.variant) * item.quantity })),
     store.deliveryFee
   );
+
+  // Redeeming is capped by both the buyer's balance and the order subtotal
+  // — a loyalty-funded order can never go to ₹0 or negative. The discount
+  // comes out of the platform's own margin, not the seller's, so
+  // commission/sellerEarning below are computed on the undiscounted subtotal.
+  let redeemPoints = 0;
+  let discountAmount = 0;
+  if (body.redeemPoints > 0) {
+    const loyaltyAccount = await prisma.loyaltyAccount.findUnique({ where: { userId: user.id } });
+    const balance = loyaltyAccount?.pointsBalance ?? 0;
+    redeemPoints = Math.min(body.redeemPoints, balance);
+    discountAmount = computeRedemptionDiscount(redeemPoints, subtotal);
+  }
+  const total = preDiscountTotal - discountAmount;
 
   const commissionPercentage = await resolveCommissionForStore(store.id, store.categoryId);
   const { platformFee, sellerEarning: subtotalEarning } = computeCommission(subtotal, commissionPercentage);
@@ -98,6 +114,8 @@ export const POST = withApiErrors(async (req: NextRequest) => {
           notes: body.notes,
           subtotal,
           deliveryFee,
+          discountAmount,
+          loyaltyPointsRedeemed: redeemPoints,
           total,
           platformFee,
           sellerEarning,
@@ -175,6 +193,10 @@ export const POST = withApiErrors(async (req: NextRequest) => {
       return jsonError(`${err.message} just sold out. Please update your cart.`, 409);
     }
     throw err;
+  }
+
+  if (redeemPoints > 0) {
+    await redeemLoyaltyPoints(user.id, order.id, redeemPoints);
   }
 
   await createNotification({
