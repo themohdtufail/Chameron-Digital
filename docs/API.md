@@ -129,6 +129,16 @@ New sellers get a 14-day `TRIAL` GROWTH subscription on store registration. `has
 | `GET /api/admin/subscription-plans` `PATCH /api/admin/subscription-plans/[id]` | ADMIN | Edit a plan's price/feature map. |
 | `GET /api/admin/subscriptions` | ADMIN | Every seller's subscription, with store + plan. `?status=`. |
 
+## AI assistant
+
+`src/lib/ai.ts` exports an `AIProvider` interface (`generate(task: AITask): Promise<string>`) with a deterministic `TemplateAIProvider` default — no external LLM call, but real, varied prose built from the actual product/store/metrics data passed in, not lorem-ipsum. `getAIProvider()` is a factory function (module-level singleton), ready to swap in a real OpenAI/Claude-backed provider later via an env var with zero call-site changes. All three endpoints below are gated behind `hasFeature(storeId, "ai")` (GROWTH plan and above) and return `403` with an upgrade message otherwise.
+
+| Method & path | Auth | Notes |
+|---|---|---|
+| `POST /api/seller/ai/product-description` | SELLER, GROWTH+ | `{ name, category?, price, attributes? }` → `{ text }`. Used by the "Generate with AI" button on the product form. |
+| `POST /api/seller/ai/marketing-content` | SELLER, GROWTH+ | `{ occasion?, highlight? }` → `{ text }`, woven with the store's own name. Used by the dashboard's marketing-content generator. |
+| `GET /api/seller/ai/insights` | SELLER, GROWTH+ | Computes real 30-day vs. previous-30-day revenue/order metrics, top product, and low-stock count from the store's own orders, then returns `{ text }` — a templated summary (growth/decline %, a coupon suggestion on decline, low-stock mentions). Powers the dashboard's AI insight card. |
+
 ## Commissions
 
 Every order snapshots `platformFee`/`sellerEarning` at creation time (`src/lib/pricing.ts`'s `computeCommission()`, fed by `resolveCommissionForStore()` — store-specific beats category beats global beats a hardcoded 10% default) and never recomputes them later, same immutability principle as `OrderItem.price`. Commission is taken from the product subtotal only; delivery charges pass straight through to the seller.

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
 import { FileUpload } from "@/components/seller/FileUpload";
@@ -67,6 +67,7 @@ export function ProductForm({
   const router = useRouter();
   const [form, setForm] = useState<ProductFormValue>(initial);
   const [saving, setSaving] = useState(false);
+  const [generatingDescription, setGeneratingDescription] = useState(false);
 
   function set<K extends keyof ProductFormValue>(key: K, value: ProductFormValue[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -86,6 +87,31 @@ export function ProductForm({
       "variants",
       form.variants.filter((_, i) => i !== idx)
     );
+  }
+
+  async function generateDescription() {
+    if (!form.name.trim() || !form.price) {
+      toast.error("Enter a product name and price first");
+      return;
+    }
+    setGeneratingDescription(true);
+    try {
+      const category = categories.find((c) => c.id === form.categoryId)?.name;
+      const attributes = Object.fromEntries(form.specs.filter((s) => s.key.trim()).map((s) => [s.key, s.value]));
+      const res = await fetch("/api/seller/ai/product-description", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: form.name, category, price: Number(form.price), attributes }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not generate description");
+      set("description", data.text);
+      toast.success("Description generated");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setGeneratingDescription(false);
+    }
   }
 
   function addSpec() {
@@ -180,7 +206,20 @@ export function ProductForm({
         </select>
       </div>
 
-      <Textarea label="Description" rows={3} value={form.description} onChange={(e) => set("description", e.target.value)} />
+      <div>
+        <div className="mb-1.5 flex items-center justify-between">
+          <label className="text-sm font-medium text-zinc-700">Description</label>
+          <button
+            type="button"
+            onClick={generateDescription}
+            disabled={generatingDescription}
+            className="flex items-center gap-1 text-xs font-semibold text-accent-600 hover:text-accent-700 disabled:opacity-50"
+          >
+            <Sparkles className="h-3.5 w-3.5" /> {generatingDescription ? "Generating…" : "Generate with AI"}
+          </button>
+        </div>
+        <Textarea rows={3} value={form.description} onChange={(e) => set("description", e.target.value)} />
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         <Input label="Price (₹)" type="number" value={form.price} onChange={(e) => set("price", e.target.value)} />

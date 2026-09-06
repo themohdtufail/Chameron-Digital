@@ -16,6 +16,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { OrderStatusBadge, type OrderStatusValue } from "@/components/OrderStatus";
 import { formatCurrency } from "@/lib/utils";
 import { StoreOpenToggle } from "@/components/seller/StoreOpenToggle";
+import { AIInsightsCard } from "@/components/seller/AIInsightsCard";
+import { MarketingContentGenerator } from "@/components/seller/MarketingContentGenerator";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +88,8 @@ export default async function SellerDashboardPage() {
           ))}
         </div>
 
+        <AIInsightsCard />
+
         {lowStockCount > 0 && (
           <Link
             href="/seller/inventory?filter=low"
@@ -106,6 +110,10 @@ export default async function SellerDashboardPage() {
               <span className="text-[10px] font-semibold text-zinc-700">{l.label}</span>
             </Link>
           ))}
+        </div>
+
+        <div className="mt-6">
+          <MarketingContentGenerator />
         </div>
 
         <div className="mt-6 lg:mt-8">
