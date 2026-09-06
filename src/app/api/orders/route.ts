@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
 import { generateOrderNumber, formatCurrency } from "@/lib/utils";
+import { computeUnitPrice, computeCartTotals } from "@/lib/pricing";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { createNotification, notifyLowStockIfCrossed } from "@/lib/notify";
 
@@ -63,12 +64,10 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     }
   }
 
-  const subtotal = cartItems.reduce((sum, item) => {
-    const unitPrice = (item.product.discountPrice ?? item.product.price) + (item.variant?.priceDelta ?? 0);
-    return sum + unitPrice * item.quantity;
-  }, 0);
-  const deliveryFee = store.deliveryFee;
-  const total = subtotal + deliveryFee;
+  const { subtotal, deliveryFee, total } = computeCartTotals(
+    cartItems.map((item) => ({ lineTotal: computeUnitPrice(item.product, item.variant) * item.quantity })),
+    store.deliveryFee
+  );
 
   const addressSnapshot = [
     address.addressLine,
@@ -100,7 +99,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
           total,
           items: {
             create: cartItems.map((item) => {
-              const unitPrice = (item.product.discountPrice ?? item.product.price) + (item.variant?.priceDelta ?? 0);
+              const unitPrice = computeUnitPrice(item.product, item.variant);
               return {
                 productId: item.productId,
                 variantId: item.variantId,

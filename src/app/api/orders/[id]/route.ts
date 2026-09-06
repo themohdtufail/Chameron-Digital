@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { withApiErrors, jsonError } from "@/lib/api-utils";
 import { createNotification } from "@/lib/notify";
+import { canTransition, type OrderStatus } from "@/lib/order-status";
 
 const STATUS_LABEL: Record<string, string> = {
   CONFIRMED: "confirmed",
@@ -35,19 +36,6 @@ export const GET = withApiErrors(async (_req: NextRequest, { params }: { params:
   return NextResponse.json({ order });
 });
 
-// A buyer can still back out through CONFIRMED (before the seller has started
-// preparing it); once PREPARING begins, only the 8-state forward path or a
-// seller-initiated REJECTED applies.
-const BUYER_CANCELLABLE_STATUSES = ["PENDING", "CONFIRMED"];
-
-const STATUS_TRANSITIONS: Record<string, string[]> = {
-  PENDING: ["CONFIRMED", "REJECTED"],
-  CONFIRMED: ["PREPARING", "REJECTED"],
-  PREPARING: ["READY"],
-  READY: ["OUT_FOR_DELIVERY"],
-  OUT_FOR_DELIVERY: ["DELIVERED"],
-};
-
 const updateSchema = z.object({
   status: z.enum([
     "CONFIRMED",
@@ -75,23 +63,11 @@ export const PATCH = withApiErrors(async (req: NextRequest, { params }: { params
   const isBuyerOwner = order.buyerId === user.id;
   const isCancellingOrRejecting = status === "CANCELLED" || status === "REJECTED";
 
-  if (status === "CANCELLED") {
-    if (!isBuyerOwner) return jsonError("Only the buyer can cancel an order", 403);
-    if (!BUYER_CANCELLABLE_STATUSES.includes(order.status)) {
-      return jsonError("This order can no longer be cancelled", 400);
-    }
-  } else {
-    if (!isSellerOwner && user.role !== "ADMIN") return jsonError("Forbidden", 403);
-    if (status === "REJECTED") {
-      const allowed = STATUS_TRANSITIONS[order.status]?.includes("REJECTED");
-      if (!allowed) return jsonError("This order can no longer be rejected", 400);
-    } else {
-      const allowed = STATUS_TRANSITIONS[order.status] ?? [];
-      if (!allowed.includes(status)) {
-        return jsonError(`Cannot move order from ${order.status} to ${status}`, 400);
-      }
-    }
-  }
+  if (!isBuyerOwner && !isSellerOwner && user.role !== "ADMIN") return jsonError("Forbidden", 403);
+
+  const actor = isBuyerOwner && !isSellerOwner ? "BUYER" : user.role === "ADMIN" ? "ADMIN" : "SELLER";
+  const check = canTransition(order.status as OrderStatus, status, actor);
+  if (!check.allowed) return jsonError(check.reason ?? "Forbidden", check.status ?? 400);
 
   const updated = await prisma.$transaction(async (tx) => {
     const result = await tx.order.update({

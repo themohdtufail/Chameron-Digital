@@ -3,6 +3,8 @@ import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { nanoid } from "nanoid";
 
+export { matchesFileSignature } from "@/lib/file-signature";
+
 export type UploadFolder = "stores" | "products" | "avatars" | "reviews" | "requests";
 
 export interface StorageDriver {
@@ -50,33 +52,3 @@ export function getStorage(): StorageDriver {
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10MB
 export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 export const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
-
-/**
- * Confirms the file's actual bytes match its declared MIME type, on top of
- * the browser-supplied Content-Type check — a renamed/relabeled malicious
- * file (e.g. a script saved as "photo.jpg") won't match any signature below
- * and gets rejected before it ever reaches disk.
- */
-export function matchesFileSignature(buffer: Buffer, mimeType: string): boolean {
-  const bytes = (...offsets: number[]) => offsets.map((o) => buffer[o]);
-
-  switch (mimeType) {
-    case "image/jpeg":
-      return bytes(0, 1, 2).join(",") === "255,216,255";
-    case "image/png":
-      return bytes(0, 1, 2, 3).join(",") === "137,80,78,71";
-    case "image/gif":
-      return buffer.subarray(0, 4).toString("ascii") === "GIF8";
-    case "image/webp":
-      return buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP";
-    case "video/webm":
-      return bytes(0, 1, 2, 3).join(",") === "26,69,223,163";
-    case "video/mp4":
-    case "video/quicktime":
-      // ISO base media (mp4/mov): a 4-byte box size, then an ASCII box type.
-      // The first box is usually "ftyp"; some encoders emit "moov"/"free"/"wide" first.
-      return ["ftyp", "moov", "free", "wide", "mdat", "skip"].includes(buffer.subarray(4, 8).toString("ascii"));
-    default:
-      return false;
-  }
-}

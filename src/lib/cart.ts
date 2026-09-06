@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { computeUnitPrice, computeCartTotals } from "@/lib/pricing";
 
 export async function getOrCreateCart(userId: string) {
   const existing = await prisma.cart.findUnique({ where: { userId } });
@@ -24,7 +25,7 @@ export async function getCartDetails(userId: string) {
 
   const store = items[0]?.product.store ?? null;
   const lineItems = items.map((item) => {
-    const unitPrice = (item.product.discountPrice ?? item.product.price) + (item.variant?.priceDelta ?? 0);
+    const unitPrice = computeUnitPrice(item.product, item.variant);
     return {
       id: item.id,
       productId: item.productId,
@@ -40,9 +41,8 @@ export async function getCartDetails(userId: string) {
     };
   });
 
-  const subtotal = lineItems.reduce((sum, i) => sum + i.lineTotal, 0);
   const deliveryFee = store ? store.deliveryFee : 0;
-  const total = subtotal + deliveryFee;
+  const { subtotal, total } = computeCartTotals(lineItems, deliveryFee);
 
   return {
     cartId: cart.id,
