@@ -122,6 +122,22 @@ enum NotificationType {
   DELIVERY_ASSIGNED
   BACK_IN_STOCK
   PRICE_DROP
+  SUPPORT_TICKET_REPLY
+}
+
+enum SupportTicketCategory {
+  ORDER
+  PAYMENT
+  ACCOUNT
+  PRODUCT
+  OTHER
+}
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
 }
 
 enum LoyaltyTransactionType {
@@ -174,6 +190,8 @@ model User {
   productRequests  ProductRequest[]
   inventoryLogs    InventoryLog[]    @relation("InventoryActor")
   auditLogs        AuditLog[]        @relation("AuditActor")
+  supportTickets       SupportTicket[]
+  supportTicketReplies SupportTicketReply[]
 
   @@index([role])
 }
@@ -837,6 +855,44 @@ model NotificationTemplate {
   body      String
   createdAt DateTime             @default(now())
   updatedAt DateTime             @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Support
+// ---------------------------------------------------------------------------
+
+// Any authenticated user (buyer, seller, delivery partner) can raise a
+// ticket; admin is the only role that resolves them. The opening message
+// is stored as the ticket's first SupportTicketReply, so the thread is a
+// single uniform list rather than a special-cased first item.
+model SupportTicket {
+  id             String                 @id @default(cuid())
+  userId         String
+  user           User                   @relation(fields: [userId], references: [id])
+  subject        String
+  category       SupportTicketCategory  @default(OTHER)
+  status         SupportTicketStatus    @default(OPEN)
+  relatedOrderId String?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  replies SupportTicketReply[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model SupportTicketReply {
+  id          String        @id @default(cuid())
+  ticketId    String
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User          @relation(fields: [authorId], references: [id])
+  message     String
+  isFromAdmin Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+
+  @@index([ticketId])
 }
 
 // ---------------------------------------------------------------------------

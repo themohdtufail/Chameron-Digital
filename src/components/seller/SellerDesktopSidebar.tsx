@@ -18,6 +18,7 @@ import {
   Tag,
   Store as StoreIcon,
   ExternalLink,
+  LifeBuoy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/Logo";
@@ -35,6 +36,7 @@ const items = [
   { href: "/seller/coupons", label: "Coupons", icon: Tag },
   { href: "/seller/plans", label: "Plans & billing", icon: CreditCard },
   { href: "/seller/verification", label: "Verification", icon: ShieldCheck },
+  { href: "/seller/support", label: "Support", icon: LifeBuoy },
   { href: "/seller/settings", label: "Settings", icon: Settings },
 ];
 

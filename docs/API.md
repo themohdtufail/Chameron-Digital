@@ -139,6 +139,19 @@ New sellers get a 14-day `TRIAL` GROWTH subscription on store registration. `has
 | `POST /api/seller/ai/marketing-content` | SELLER, GROWTH+ | `{ occasion?, highlight? }` → `{ text }`, woven with the store's own name. Used by the dashboard's marketing-content generator. |
 | `GET /api/seller/ai/insights` | SELLER, GROWTH+ | Computes real 30-day vs. previous-30-day revenue/order metrics, top product, and low-stock count from the store's own orders, then returns `{ text }` — a templated summary (growth/decline %, a coupon suggestion on decline, low-stock mentions). Powers the dashboard's AI insight card. |
 
+## Support
+
+Any authenticated user (buyer, seller, or delivery partner) can raise a ticket; only ADMIN resolves them. The opening message is stored as the ticket's first reply, so the thread is a single uniform list. A user reply on a `RESOLVED` ticket reopens it to `OPEN`; a `CLOSED` ticket rejects further user replies with `400` until an admin reopens it. An admin's first reply on an `OPEN` ticket auto-advances it to `IN_PROGRESS` and sends the user a `SUPPORT_TICKET_REPLY` notification.
+
+| Method & path | Auth | Notes |
+|---|---|---|
+| `GET/POST /api/support/tickets` | any authenticated user | List/create own tickets. `POST { subject, category, message, relatedOrderId? }`. |
+| `GET /api/support/tickets/[id]` | owner only | 404 (not 403) if the ticket belongs to someone else. |
+| `POST /api/support/tickets/[id]/replies` | owner only | `{ message }`; rejected with `400` on a `CLOSED` ticket. |
+| `GET /api/admin/support-tickets` `?status=` | ADMIN | All tickets, with the requester's name/phone/role and latest reply preview. |
+| `GET/PATCH /api/admin/support-tickets/[id]` | ADMIN | Full thread; PATCH `{ status }` writes an `AuditLog` row. |
+| `POST /api/admin/support-tickets/[id]/replies` | ADMIN | `{ message }`; notifies the ticket's owner. |
+
 ## Commissions
 
 Every order snapshots `platformFee`/`sellerEarning` at creation time (`src/lib/pricing.ts`'s `computeCommission()`, fed by `resolveCommissionForStore()` — store-specific beats category beats global beats a hardcoded 10% default) and never recomputes them later, same immutability principle as `OrderItem.price`. Commission is taken from the product subtotal only; delivery charges pass straight through to the seller.
@@ -168,3 +181,5 @@ A `DELIVERY_PARTNER` account follows the same OTP-login + approval-gate pattern 
 | `GET /api/admin/delivery-partners` `PATCH /api/admin/delivery-partners/[id]` | ADMIN | Approve/reject/suspend delivery partner applications; writes an `AuditLog` row. |
 | `GET /api/admin/orders` | ADMIN | All orders, platform-wide. |
 | `GET /api/admin/stats` | ADMIN | Platform overview tiles. |
+| `GET /api/admin/payments` `?status=` | ADMIN | Every payment platform-wide, with its order/store/buyer. |
+| `GET /api/admin/reports` | ADMIN | 30-day revenue/commission/order totals + daily series, active-seller/buyer/delivery-partner counts, open-ticket count, active-subscription breakdown by plan, and top 5 stores by revenue — the consolidated cross-milestone reports overview. |

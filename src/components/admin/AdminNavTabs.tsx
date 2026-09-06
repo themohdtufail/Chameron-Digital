@@ -6,10 +6,13 @@ import { cn } from "@/lib/utils";
 
 const tabs = [
   { href: "/admin/dashboard", label: "Dashboard" },
+  { href: "/admin/reports", label: "Reports" },
   { href: "/admin/sellers", label: "Sellers" },
   { href: "/admin/delivery-partners", label: "Delivery" },
   { href: "/admin/subscriptions", label: "Subscriptions" },
   { href: "/admin/commissions", label: "Commissions" },
+  { href: "/admin/payments", label: "Payments" },
+  { href: "/admin/support", label: "Support" },
   { href: "/admin/categories", label: "Categories" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/orders", label: "Orders" },
