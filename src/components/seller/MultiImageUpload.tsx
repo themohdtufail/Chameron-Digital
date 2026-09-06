@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import toast from "react-hot-toast";
-import { ImagePlus, Loader2, X } from "lucide-react";
+import { ImagePlus, Loader2, X, ChevronLeft, ChevronRight } from "lucide-react";
 
 export function MultiImageUpload({
   images,
@@ -38,9 +38,20 @@ export function MultiImageUpload({
     }
   }
 
+  function move(idx: number, dir: -1 | 1) {
+    const target = idx + dir;
+    if (target < 0 || target >= images.length) return;
+    const next = [...images];
+    [next[idx], next[target]] = [next[target], next[idx]];
+    onChange(next);
+  }
+
   return (
     <div>
       <p className="mb-1.5 text-sm font-medium text-zinc-700">Product photos</p>
+      {images.length > 1 && (
+        <p className="mb-2 text-xs text-zinc-400">The first photo is used as the cover image. Use the arrows to reorder.</p>
+      )}
       <div className="flex flex-wrap gap-2">
         {images.map((url, idx) => (
           <div key={url} className="relative h-20 w-20 overflow-hidden rounded-xl border border-zinc-200">
@@ -52,6 +63,26 @@ export function MultiImageUpload({
             >
               <X className="h-3 w-3" />
             </button>
+            {images.length > 1 && (
+              <div className="absolute inset-x-0 bottom-1 flex justify-center gap-1">
+                <button
+                  type="button"
+                  disabled={idx === 0}
+                  onClick={() => move(idx, -1)}
+                  className="flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white disabled:opacity-30"
+                >
+                  <ChevronLeft className="h-3 w-3" />
+                </button>
+                <button
+                  type="button"
+                  disabled={idx === images.length - 1}
+                  onClick={() => move(idx, 1)}
+                  className="flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white disabled:opacity-30"
+                >
+                  <ChevronRight className="h-3 w-3" />
+                </button>
+              </div>
+            )}
           </div>
         ))}
         {images.length < max && (

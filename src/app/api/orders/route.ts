@@ -123,6 +123,15 @@ export const POST = withApiErrors(async (req: NextRequest) => {
           data: { stockQuantity: { decrement: item.quantity } },
         });
       }
+      await tx.inventoryLog.create({
+        data: {
+          productId: item.productId,
+          variantId: item.variantId,
+          change: -item.quantity,
+          reason: "ORDER",
+          orderId: created.id,
+        },
+      });
     }
 
     await tx.cartItem.deleteMany({ where: { cartId: cart.id } });

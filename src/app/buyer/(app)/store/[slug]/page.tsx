@@ -12,14 +12,20 @@ import { isStoreOpen } from "@/lib/store-helpers";
 
 export const dynamic = "force-dynamic";
 
-export default async function StorePage({ params }: { params: { slug: string } }) {
+export default async function StorePage({
+  params,
+  searchParams,
+}: {
+  params: { slug: string };
+  searchParams: { preview?: string };
+}) {
   const user = await getCurrentUser();
   const store = await prisma.store.findUnique({
     where: { slug: params.slug },
     include: {
       category: true,
       hours: true,
-      productCategories: { orderBy: { createdAt: "asc" } },
+      productCategories: { where: { isHidden: false }, orderBy: [{ position: "asc" }, { createdAt: "asc" }] },
       products: {
         where: { isHidden: false },
         include: { images: { orderBy: { position: "asc" }, take: 1 } },
@@ -28,7 +34,8 @@ export default async function StorePage({ params }: { params: { slug: string } }
     },
   });
 
-  if (!store || store.status !== "APPROVED") notFound();
+  const isOwnerPreview = searchParams.preview === "1" && !!user && store?.ownerId === user.id;
+  if (!store || (store.status !== "APPROVED" && !isOwnerPreview)) notFound();
 
   const openNow = isStoreOpen(store);
   const wishlistIds = user
@@ -50,6 +57,11 @@ export default async function StorePage({ params }: { params: { slug: string } }
 
   return (
     <div className="animate-fade-in pb-6">
+      {isOwnerPreview && (
+        <div className="bg-accent-500 px-4 py-2 text-center text-xs font-bold text-white">
+          Preview mode — this is how buyers will see your store{store.status !== "APPROVED" ? " once approved" : ""}.
+        </div>
+      )}
       <div className="relative h-44 w-full bg-zinc-100 lg:h-64">
         {store.coverUrl ? (
           <Image src={store.coverUrl} alt={store.name} fill className="object-cover" priority />

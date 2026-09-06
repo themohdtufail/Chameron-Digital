@@ -1,5 +1,16 @@
 import Link from "next/link";
-import { ShoppingBag, IndianRupee, Package, Users, ArrowRight } from "lucide-react";
+import {
+  ShoppingBag,
+  IndianRupee,
+  Package,
+  Users,
+  ArrowRight,
+  AlertTriangle,
+  LayoutGrid,
+  Boxes,
+  BarChart3,
+  Inbox,
+} from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { OrderStatusBadge, type OrderStatusValue } from "@/components/OrderStatus";
@@ -7,6 +18,13 @@ import { formatCurrency } from "@/lib/utils";
 import { StoreOpenToggle } from "@/components/seller/StoreOpenToggle";
 
 export const dynamic = "force-dynamic";
+
+const QUICK_LINKS = [
+  { href: "/seller/categories", label: "Categories", icon: LayoutGrid },
+  { href: "/seller/inventory", label: "Inventory", icon: Boxes },
+  { href: "/seller/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/seller/requests", label: "Requests", icon: Inbox },
+];
 
 export default async function SellerDashboardPage() {
   const user = await getCurrentUser();
@@ -16,7 +34,7 @@ export default async function SellerDashboardPage() {
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
 
-  const [todaysOrders, salesAgg, productCount, distinctCustomers, recentOrders] = await Promise.all([
+  const [todaysOrders, salesAgg, productCount, distinctCustomers, recentOrders, trackedStock] = await Promise.all([
     prisma.order.count({ where: { storeId: store.id, createdAt: { gte: startOfDay } } }),
     prisma.order.aggregate({
       where: { storeId: store.id, status: { in: ["CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "DELIVERED"] } },
@@ -30,7 +48,13 @@ export default async function SellerDashboardPage() {
       take: 5,
       include: { items: true },
     }),
+    prisma.product.findMany({
+      where: { storeId: store.id, trackInventory: true },
+      select: { stockQuantity: true, lowStockThreshold: true },
+    }),
   ]);
+
+  const lowStockCount = trackedStock.filter((r) => r.stockQuantity > 0 && r.stockQuantity <= r.lowStockThreshold).length;
 
   const cards = [
     { label: "Today's Orders", value: todaysOrders, icon: ShoppingBag, tone: "bg-brand-50 text-brand-600" },
@@ -59,6 +83,28 @@ export default async function SellerDashboardPage() {
               <p className="mt-3 text-lg font-extrabold text-zinc-900 lg:text-2xl">{c.value}</p>
               <p className="text-xs text-zinc-500">{c.label}</p>
             </div>
+          ))}
+        </div>
+
+        {lowStockCount > 0 && (
+          <Link
+            href="/seller/inventory?filter=low"
+            className="mt-4 flex items-center gap-2 rounded-xl border border-accent-200 bg-accent-50 px-3.5 py-2.5 text-sm font-semibold text-accent-700"
+          >
+            <AlertTriangle className="h-4 w-4" /> {lowStockCount} product{lowStockCount > 1 ? "s are" : " is"} running low on stock
+          </Link>
+        )}
+
+        <div className="mt-5 grid grid-cols-4 gap-2 lg:hidden">
+          {QUICK_LINKS.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className="flex flex-col items-center gap-1.5 rounded-xl border border-zinc-100 bg-white py-3 text-center shadow-card"
+            >
+              <l.icon className="h-4 w-4 text-brand-600" />
+              <span className="text-[10px] font-semibold text-zinc-700">{l.label}</span>
+            </Link>
           ))}
         </div>
 

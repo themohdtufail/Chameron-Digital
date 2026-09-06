@@ -25,9 +25,12 @@ export interface ProductFormValue {
   name: string;
   categoryId: string;
   description: string;
+  sku: string;
   price: string;
   discountPrice: string;
   stockQuantity: string;
+  lowStockThreshold: string;
+  trackInventory: boolean;
   status: "AVAILABLE" | "OUT_OF_STOCK" | "HIDDEN";
   images: string[];
   videoUrl: string | null;
@@ -39,9 +42,12 @@ export const emptyProductForm: ProductFormValue = {
   name: "",
   categoryId: "",
   description: "",
+  sku: "",
   price: "",
   discountPrice: "",
   stockQuantity: "0",
+  lowStockThreshold: "5",
+  trackInventory: true,
   status: "AVAILABLE",
   images: [],
   videoUrl: null,
@@ -109,9 +115,12 @@ export function ProductForm({
         name: form.name,
         categoryId: form.categoryId || null,
         description: form.description || undefined,
+        sku: form.sku || null,
         price: Number(form.price),
         discountPrice: form.discountPrice ? Number(form.discountPrice) : null,
         stockQuantity: Number(form.stockQuantity || 0),
+        lowStockThreshold: Number(form.lowStockThreshold || 0),
+        trackInventory: form.trackInventory,
         status: form.status,
         videoUrl: form.videoUrl,
         images: form.images,
@@ -184,12 +193,7 @@ export function ProductForm({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <Input
-          label="Stock quantity"
-          type="number"
-          value={form.stockQuantity}
-          onChange={(e) => set("stockQuantity", e.target.value)}
-        />
+        <Input label="SKU (optional)" value={form.sku} onChange={(e) => set("sku", e.target.value)} />
         <div>
           <label className="mb-1.5 block text-sm font-medium text-zinc-700">Status</label>
           <select
@@ -203,6 +207,31 @@ export function ProductForm({
           </select>
         </div>
       </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Input
+          label="Stock quantity"
+          type="number"
+          value={form.stockQuantity}
+          onChange={(e) => set("stockQuantity", e.target.value)}
+        />
+        <Input
+          label="Low-stock threshold"
+          type="number"
+          value={form.lowStockThreshold}
+          onChange={(e) => set("lowStockThreshold", e.target.value)}
+        />
+      </div>
+
+      <label className="flex items-center justify-between rounded-xl border border-zinc-200 px-3.5 py-3">
+        <span className="text-sm font-medium text-zinc-700">Track inventory for this product</span>
+        <input
+          type="checkbox"
+          checked={form.trackInventory}
+          onChange={(e) => set("trackInventory", e.target.checked)}
+          className="h-5 w-5 accent-brand-600"
+        />
+      </label>
 
       <div>
         <div className="mb-2 flex items-center justify-between">

@@ -3,7 +3,19 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Package, ClipboardList, Users, Settings, Store as StoreIcon, ExternalLink, Bell } from "lucide-react";
+import {
+  LayoutDashboard,
+  Package,
+  LayoutGrid,
+  Boxes,
+  ClipboardList,
+  Inbox,
+  BarChart3,
+  Users,
+  Settings,
+  Store as StoreIcon,
+  ExternalLink,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/Logo";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -11,9 +23,12 @@ import { NotificationBell } from "@/components/NotificationBell";
 const items = [
   { href: "/seller/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/seller/products", label: "Products", icon: Package },
+  { href: "/seller/categories", label: "Categories", icon: LayoutGrid },
+  { href: "/seller/inventory", label: "Inventory", icon: Boxes },
   { href: "/seller/orders", label: "Orders", icon: ClipboardList },
+  { href: "/seller/requests", label: "Product requests", icon: Inbox },
+  { href: "/seller/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/seller/customers", label: "Customers", icon: Users },
-  { href: "/seller/notifications", label: "Notifications", icon: Bell },
   { href: "/seller/settings", label: "Settings", icon: Settings },
 ];
 

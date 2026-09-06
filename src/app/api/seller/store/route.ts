@@ -9,7 +9,7 @@ export const GET = withApiErrors(async () => {
   const user = await requireRole("SELLER");
   const store = await prisma.store.findUnique({
     where: { ownerId: user.id },
-    include: { category: true },
+    include: { category: true, hours: true },
   });
   return NextResponse.json({ store });
 });
@@ -66,13 +66,34 @@ export const PATCH = withApiErrors(async (req: NextRequest) => {
   const store = await prisma.store.findUnique({ where: { ownerId: user.id } });
   if (!store) return jsonError("Store not found", 404);
 
-  const body = storeUpdateSchema.parse(await req.json());
-  const updated = await prisma.store.update({
-    where: { id: store.id },
-    data: {
-      ...body,
-      email: body.email === "" ? null : body.email,
-    },
+  const { hours, ...body } = storeUpdateSchema.parse(await req.json());
+
+  const updated = await prisma.$transaction(async (tx) => {
+    if (hours) {
+      for (const h of hours) {
+        await tx.storeHours.upsert({
+          where: { storeId_dayOfWeek: { storeId: store.id, dayOfWeek: h.dayOfWeek } },
+          update: { isClosed: h.isClosed, openTime: h.openTime ?? undefined, closeTime: h.closeTime ?? undefined },
+          create: {
+            storeId: store.id,
+            dayOfWeek: h.dayOfWeek,
+            isClosed: h.isClosed,
+            openTime: h.openTime ?? undefined,
+            closeTime: h.closeTime ?? undefined,
+          },
+        });
+      }
+    }
+
+    return tx.store.update({
+      where: { id: store.id },
+      data: {
+        ...body,
+        email: body.email === "" ? null : body.email,
+        vacationUntil: body.vacationUntil === null ? null : body.vacationUntil ? new Date(body.vacationUntil) : undefined,
+      },
+      include: { hours: true },
+    });
   });
 
   return NextResponse.json({ store: updated });

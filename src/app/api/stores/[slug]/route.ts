@@ -9,7 +9,7 @@ export const GET = withApiErrors(async (_req: NextRequest, { params }: { params:
     include: {
       category: true,
       hours: true,
-      productCategories: { orderBy: { createdAt: "asc" } },
+      productCategories: { where: { isHidden: false }, orderBy: [{ position: "asc" }, { createdAt: "asc" }] },
       products: {
         where: { isHidden: false },
         include: { images: { orderBy: { position: "asc" }, take: 1 } },
