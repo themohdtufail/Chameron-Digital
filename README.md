@@ -110,10 +110,11 @@ npm install --legacy-peer-deps
 cp .env.example .env
 ```
 
-Edit `.env` — at minimum set `DATABASE_URL` to your Postgres instance. Everything else has a sensible dev default:
+Edit `.env` — at minimum set `DATABASE_URL` (and `DIRECT_URL`) to your Postgres instance. Everything else has a sensible dev default:
 
 ```env
 DATABASE_URL="postgresql://user:password@localhost:5432/chameron_digital"
+DIRECT_URL="postgresql://user:password@localhost:5432/chameron_digital"
 JWT_SECRET="replace-with-a-long-random-secret"
 ADMIN_PHONE="+911234567890"
 ADMIN_PASSWORD="ChameronAdmin@123"
@@ -121,6 +122,13 @@ OTP_DEV_MODE="true"          # OTPs are printed to the server console instead of
 OTP_DEV_STATIC_CODE="123456"  # ...and this code always works in dev mode
 STORAGE_DRIVER="local"        # uploads are written to /public/uploads
 ```
+
+> `DIRECT_URL` is what Prisma Migrate uses to run schema changes. On a plain
+> Postgres instance it's identical to `DATABASE_URL`. **On Neon specifically**,
+> set `DATABASE_URL` to the pooled connection string (the one with `-pooler`
+> in the hostname — used by the app at runtime) and `DIRECT_URL` to the
+> direct/unpooled one from the same project (Neon's dashboard shows both) —
+> migrations fail over the pooled connection.
 
 ### 3. Create the database schema
 
@@ -192,8 +200,10 @@ The app is a standard Next.js application and deploys cleanly to any Node host. 
 ### Vercel + managed Postgres (fastest)
 
 1. Push this repo to GitHub.
-2. Create a Postgres database (Vercel Postgres, Neon, Supabase, or RDS all work) and copy its connection string.
-3. Import the repo into Vercel and set the environment variables from `.env.example` (in particular `DATABASE_URL`, `JWT_SECRET`, `ADMIN_PHONE`, `ADMIN_PASSWORD`) in the Vercel project settings **before** the first deploy.
+2. Create a Postgres database and copy its connection string(s):
+   - **Neon**: copy both the **pooled** connection string (hostname contains `-pooler`) and the **direct** one from the same dashboard panel.
+   - **Vercel Postgres / Supabase / RDS**: use the same connection string for both variables below unless the provider gives you a separate pooler endpoint.
+3. Import the repo into Vercel and set the environment variables from `.env.example` in the Vercel project settings **before** the first deploy — in particular `DATABASE_URL` (pooled), `DIRECT_URL` (direct/unpooled — **required**, migrations fail without it on Neon), `JWT_SECRET`, `ADMIN_PHONE`, `ADMIN_PASSWORD`.
 4. Deploy. The `build` script runs `prisma migrate deploy` automatically, so the schema is created as part of the build — no manual migration step needed.
 5. Seed demo data once, from any machine with normal internet access (not required, but useful to get the admin account and categories in place): `DATABASE_URL=<your connection string> npm run db:seed`.
 6. Set `STORAGE_DRIVER=s3` and fill in the `S3_*` variables (see below) — a serverless deployment has no persistent disk, so the `local` storage driver **must not** be used in production.
