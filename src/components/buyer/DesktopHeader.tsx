@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MapPin, ChevronDown, ShoppingCart, Heart } from "lucide-react";
+import { MapPin, ChevronDown, ShoppingCart, Heart, User } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { Logo } from "@/components/Logo";
@@ -50,6 +50,14 @@ export async function DesktopHeader() {
         </Link>
 
         <NotificationBell href="/buyer/notifications" />
+
+        <Link
+          href="/buyer/profile"
+          className="flex shrink-0 h-10 w-10 items-center justify-center rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+          aria-label="Profile"
+        >
+          <User className="h-4 w-4" />
+        </Link>
 
         <Link
           href="/buyer/cart"
