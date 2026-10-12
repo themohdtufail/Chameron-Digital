@@ -35,11 +35,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - name: Validate configuration
-        env:
-          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
-          SOURCE_ID: ${{ inputs.source_id }}
-          TASK_PROMPT: ${{ inputs.task_prompt }}
       - name: Dispatch task
         shell: bash
         env:
