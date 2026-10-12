@@ -1,0 +1,84 @@
+name: Dispatch Jules task
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_id:
+        description: Exact Jules API source resource, e.g. sources/...
+        required: true
+        type: string
+      starting_branch:
+        description: Existing branch in the connected source repository
+        required: true
+        default: main
+        type: string
+      task_prompt:
+        description: One bounded task with acceptance criteria; do not include secrets
+        required: true
+        type: string
+      require_plan_approval:
+        description: Require a plan approval step in Jules
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jules-dispatch
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    name: Create Jules session
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Validate configuration
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+          SOURCE_ID: ${{ inputs.source_id }}
+          TASK_PROMPT: ${{ inputs.task_prompt }}
+      - name: Dispatch task
+        shell: bash
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+          SOURCE_ID: ${{ inputs.source_id }}
+          STARTING_BRANCH: ${{ inputs.starting_branch }}
+          TASK_PROMPT: ${{ inputs.task_prompt }}
+          REQUIRE_PLAN_APPROVAL: ${{ inputs.require_plan_approval }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${JULES_API_KEY:-}" ]]; then
+            echo "::error::Missing repository secret JULES_API_KEY. Add it in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          if [[ ! "$SOURCE_ID" =~ ^sources/[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::source_id must be the exact Jules source resource name (sources/...)."
+            exit 1
+          fi
+          if [[ -z "${TASK_PROMPT//[[:space:]]/}" ]]; then
+            echo "::error::Task prompt cannot be empty."
+            exit 1
+          fi
+          payload="$(jq -n \
+            --arg prompt "$TASK_PROMPT" \
+            --arg source "$SOURCE_ID" \
+            --arg branch "$STARTING_BRANCH" \
+            --argjson approval "$REQUIRE_PLAN_APPROVAL" \
+            '{prompt:$prompt, sourceContext:{source:$source, githubRepoContext:{startingBranch:$branch}}, requirePlanApproval:$approval}')"
+          response="$(curl --fail --silent --show-error \
+            --request POST \
+            --url "https://jules.googleapis.com/v1alpha/sessions" \
+            --header "x-goog-api-key: $JULES_API_KEY" \
+            --header "Content-Type: application/json" \
+            --data "$payload")"
+          echo "$response" | jq '{name, id, state, url}'
+          session_name="$(echo "$response" | jq -r '.name // empty')"
+          if [[ -z "$session_name" ]]; then
+            echo "::error::Jules response did not include a session name. Inspect the API response in the failed run without exposing secrets."
+            exit 1
+          fi
+          echo "Jules session created: $session_name" >> "$GITHUB_STEP_SUMMARY"
+          echo "Review the session in Jules, then inspect any resulting GitHub branch/PR. Session creation is not task completion." >> "$GITHUB_STEP_SUMMARY"
